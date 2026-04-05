@@ -134,48 +134,80 @@ def load_tfidf_features(path: Path | None = None) -> np.ndarray:
 # DistilBERT embeddings (deferred — implement in Phase 3)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def get_distilbert_embeddings(texts: list[str], batch_size: int = 32) -> np.ndarray:
-    """Compute mean-pooled DistilBERT embeddings for a list of texts.
+def get_distilbert_embeddings(
+    texts: list[str],
+    batch_size: int = 256,
+    max_length: int = 128,
+    show_progress: bool = True,
+    save_path: Path | None = None,
+) -> np.ndarray:
+    """Compute DistilBERT [CLS] token embeddings for a list of texts.
+
+    Extracts the [CLS] token hidden state (first token) from DistilBERT's
+    last hidden layer as a 768-dim representation for each email. This is
+    faster and more memory-efficient than mean-pooling over all tokens.
 
     Args:
-        texts: List of raw or preprocessed email strings.
-        batch_size: Number of texts per forward pass.
+        texts: List of preprocessed email strings.
+        batch_size: Number of texts per GPU forward pass (default 256).
+        max_length: Maximum token sequence length (default 128). Emails
+            are typically short after preprocessing; 128 tokens captures
+            >95% of content while being 4x faster than 512.
+        show_progress: Whether to display a tqdm progress bar.
+        save_path: Optional path to save the resulting .npy array immediately
+            after generation (for checkpointing on large datasets).
 
     Returns:
-        Array of shape (n_samples, 768) — DistilBERT hidden size.
+        Array of shape (n_samples, 768).
     """
     import torch
-    from transformers import AutoModel, AutoTokenizer
+    from transformers import DistilBertModel, DistilBertTokenizerFast
 
-    tokenizer = AutoTokenizer.from_pretrained(DISTILBERT_MODEL_NAME)
-    model = AutoModel.from_pretrained(DISTILBERT_MODEL_NAME)
+    try:
+        from tqdm import tqdm
+        _tqdm = tqdm
+    except ImportError:
+        _tqdm = None
+
+    tokenizer = DistilBertTokenizerFast.from_pretrained(DISTILBERT_MODEL_NAME)
+    model = DistilBertModel.from_pretrained(DISTILBERT_MODEL_NAME)
     model.eval()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+    logger.info("DistilBERT running on %s", device)
 
     all_embeddings: list[np.ndarray] = []
+    n_batches = -(-len(texts) // batch_size)
+    iterator = range(0, len(texts), batch_size)
 
-    for i in range(0, len(texts), batch_size):
+    if show_progress and _tqdm is not None:
+        iterator = _tqdm(iterator, total=n_batches, desc="DistilBERT embeddings", unit="batch")
+
+    for i in iterator:
         batch = texts[i : i + batch_size]
         encoded = tokenizer(
             batch,
             padding=True,
             truncation=True,
-            max_length=512,
+            max_length=max_length,
             return_tensors="pt",
         ).to(device)
 
         with torch.no_grad():
             output = model(**encoded)
 
-        hidden = output.last_hidden_state  # (batch, seq_len, 768)
-        mask = encoded["attention_mask"].unsqueeze(-1).float()
-        pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1)
-        all_embeddings.append(pooled.cpu().numpy())
+        # [CLS] token is the first token in every sequence
+        cls_embeddings = output.last_hidden_state[:, 0, :].cpu().numpy()
+        all_embeddings.append(cls_embeddings)
 
-        logger.debug(
-            "Embedded batch %d/%d", i // batch_size + 1, -(-len(texts) // batch_size)
-        )
+    result = np.vstack(all_embeddings)
+    logger.info("DistilBERT embeddings complete: shape %s", result.shape)
 
-    return np.vstack(all_embeddings)
+    if save_path is not None:
+        dest = Path(save_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        np.save(dest, result)
+        logger.info("Saved embeddings to %s", dest)
+
+    return result
