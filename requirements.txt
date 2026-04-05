@@ -1,0 +1,55 @@
+# === Core ===
+python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# === Data & ML ===
+numpy>=1.26.0
+pandas>=2.2.0
+scikit-learn>=1.5.0
+xgboost>=2.1.0
+imbalanced-learn>=0.12.0       # SMOTE
+
+# === Deep Learning ===
+torch>=2.3.0
+torchvision>=0.18.0
+
+# === NLP ===
+nltk>=3.9.0
+spacy>=3.7.0
+transformers>=4.44.0           # DistilBERT, BERT
+tokenizers>=0.19.0
+
+# === Email Parsing & Protocol ===
+dkimpy>=1.1.0
+dnspython>=2.6.0
+python-whois>=0.9.0
+
+# === Explainability ===
+lime>=0.2.0
+shap>=0.45.0
+
+# === API ===
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.8.0
+python-multipart>=0.0.9        # File uploads
+
+# === Visualization & Notebooks ===
+matplotlib>=3.9.0
+seaborn>=0.13.0
+jupyter>=1.0.0
+ipykernel>=6.29.0
+
+# === Testing ===
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+httpx>=0.27.0                  # For testing FastAPI
+
+# === Utilities ===
+tqdm>=4.66.0
+requests>=2.32.0
+beautifulsoup4>=4.12.0         # HTML stripping from email bodies
+
+# === Optional: RAG Layer ===
+# chromadb>=0.5.0              # Vector store for user profiles
+# langchain>=0.2.0             # RAG orchestration
