@@ -1,12 +1,19 @@
 """
-XAI Module — LIME Explainer
+XAI Module — LIME Text Explainer
 
-Generates local, instance-level explanations for individual email predictions
-using LIME (Local Interpretable Model-agnostic Explanations). Produces
-human-readable feature weights showing which words or URL features most
-influenced the classification decision.
+Generates local, instance-level explanations for phishing predictions using
+LIME (Local Interpretable Model-agnostic Explanations). Shows which words
+most strongly pushed the prediction toward phishing or legitimate.
 
-Dependencies: lime, numpy
+The classifier wrapped by LIME uses the TF-IDF → Ensemble path because LIME
+perturbs the text hundreds of times; TF-IDF vectorization is fast enough
+(~2ms per sample) while DistilBERT inference is too slow (~500ms).
+
+Public API:
+    LIMEExplainer.explain_prediction(raw_email_text, label_names) -> dict
+    get_lime_explainer(vectorizer, ensemble) -> LIMEExplainer
+
+Dependencies: lime, scikit-learn, numpy
 """
 
 import logging
@@ -15,111 +22,100 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-
-class LIMETextExplainer:
-    """LIME explainer for text-based phishing classification.
-
-    Args:
-        class_names: List of class label strings, e.g. ["benign", "phishing"].
-    """
-
-    def __init__(self, class_names: list[str] | None = None) -> None:
-        self.class_names = class_names or ["benign", "phishing"]
-        self._explainer = None
-
-    def _get_explainer(self):
-        """Lazily initialize the LIME text explainer."""
-        if self._explainer is None:
-            from lime.lime_text import LimeTextExplainer  # type: ignore[import]
-
-            self._explainer = LimeTextExplainer(class_names=self.class_names)
-        return self._explainer
-
-    def explain_instance(
-        self,
-        text: str,
-        predict_fn: callable,
-        num_features: int = 15,
-        num_samples: int = 500,
-    ) -> list[tuple[str, float]]:
-        """Generate a LIME explanation for a single email text.
-
-        Args:
-            text: Raw or preprocessed email body string.
-            predict_fn: Callable that accepts a list of strings and returns
-                an (n_samples, n_classes) probability array.
-            num_features: Number of top features to include in explanation.
-            num_samples: Number of perturbed samples for local fitting.
-
-        Returns:
-            List of (word, weight) tuples sorted by absolute weight descending.
-            Positive weights indicate phishing signal; negative indicate benign.
-        """
-        explainer = self._get_explainer()
-        explanation = explainer.explain_instance(
-            text,
-            predict_fn,
-            num_features=num_features,
-            num_samples=num_samples,
-            labels=(1,),  # Explain phishing class
-        )
-        return explanation.as_list(label=1)
+CLASS_NAMES = ["legitimate", "phishing_human", "phishing_ai"]
 
 
-class LIMETabularExplainer:
-    """LIME explainer for tabular URL / protocol features.
+class LIMEExplainer:
+    """LIME text explainer wrapping the TF-IDF → Super Learner pipeline.
 
     Args:
-        feature_names: List of feature names corresponding to columns in X.
-        class_names: List of class label strings.
-        training_data: Representative numpy array used to estimate feature distributions.
+        vectorizer: Fitted TfidfVectorizer.
+        ensemble: Fitted SuperLearner (or any model with predict_proba).
+        class_names: Ordered list of class name strings.
+        num_samples: Number of perturbed samples LIME generates per explanation.
     """
 
-    def __init__(
-        self,
-        feature_names: list[str],
-        class_names: list[str] | None = None,
-        training_data: np.ndarray | None = None,
-    ) -> None:
-        self.feature_names = feature_names
-        self.class_names = class_names or ["benign", "phishing"]
-        self.training_data = training_data
+    def __init__(self, vectorizer, ensemble, class_names=None, num_samples: int = 500) -> None:
+        self.vectorizer = vectorizer
+        self.ensemble = ensemble
+        self.class_names = class_names or CLASS_NAMES
+        self.num_samples = num_samples
         self._explainer = None
 
-    def _get_explainer(self):
+    def _get_lime_explainer(self):
         if self._explainer is None:
-            from lime.lime_tabular import LimeTabularExplainer  # type: ignore[import]
-
-            self._explainer = LimeTabularExplainer(
-                training_data=self.training_data,
-                feature_names=self.feature_names,
+            from lime.lime_text import LimeTextExplainer
+            self._explainer = LimeTextExplainer(
                 class_names=self.class_names,
-                discretize_continuous=True,
+                random_state=42,
             )
         return self._explainer
 
-    def explain_instance(
-        self,
-        instance: np.ndarray,
-        predict_fn: callable,
-        num_features: int = 10,
-    ) -> list[tuple[str, float]]:
-        """Generate a LIME explanation for a single feature vector.
+    def _predict_fn(self, texts: list[str]) -> np.ndarray:
+        """Predict function that LIME calls on perturbed text variants.
 
         Args:
-            instance: 1-D feature array for the email to explain.
-            predict_fn: Callable accepting (n_samples, n_features) array and
-                returning (n_samples, n_classes) probability array.
-            num_features: Number of top features to include.
+            texts: List of perturbed text strings.
 
         Returns:
-            List of (feature_description, weight) tuples.
+            Array of shape (n, n_classes) with probability for each class.
         """
-        explainer = self._get_explainer()
-        explanation = explainer.explain_instance(
-            instance,
-            predict_fn,
-            num_features=num_features,
-            labels=(1,),
-        )
-        return explanation.as_list(label=1)
+        X = self.vectorizer.transform(texts)
+        return self.ensemble.predict_proba(X)
+
+    def explain_prediction(
+        self,
+        raw_text: str,
+        num_features: int = 10,
+        num_samples: int | None = None,
+    ) -> dict:
+        """Generate a LIME explanation for a single email.
+
+        Args:
+            raw_text: Preprocessed or raw email body text.
+            num_features: Number of top features to include.
+            num_samples: Override default LIME sample count.
+
+        Returns:
+            Dict with keys:
+                predicted_label (str): Top predicted class.
+                confidence (float): Probability of predicted class.
+                class_probabilities (dict): {class_name: probability}.
+                top_features (list[tuple[str, float]]): (word, weight) pairs
+                    sorted by absolute weight. Positive weight → phishing signal,
+                    negative → legitimate signal (relative to predicted class).
+                predicted_class_idx (int): Integer index of predicted class.
+        """
+        explainer = self._get_lime_explainer()
+        n_samples = num_samples or self.num_samples
+
+        # Get prediction first
+        X = self.vectorizer.transform([raw_text])
+        proba = self.ensemble.predict_proba(X)[0]
+        pred_idx = int(np.argmax(proba))
+        pred_label = self.class_names[pred_idx]
+        confidence = float(proba[pred_idx])
+
+        # Generate LIME explanation for the predicted class
+        try:
+            explanation = explainer.explain_instance(
+                raw_text,
+                self._predict_fn,
+                num_features=num_features,
+                num_samples=n_samples,
+                labels=(pred_idx,),
+            )
+            features = explanation.as_list(label=pred_idx)
+        except Exception as exc:
+            logger.warning("LIME explanation failed: %s", exc)
+            features = []
+
+        return {
+            "predicted_label": pred_label,
+            "confidence": confidence,
+            "class_probabilities": {
+                name: float(proba[i]) for i, name in enumerate(self.class_names)
+            },
+            "top_features": features,
+            "predicted_class_idx": pred_idx,
+        }

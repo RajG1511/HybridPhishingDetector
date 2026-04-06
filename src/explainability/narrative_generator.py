@@ -1,104 +1,225 @@
 """
 XAI Module — Narrative Explanation Generator
 
-Converts raw SHAP/LIME feature attributions into human-readable natural
-language explanations suitable for display in a security dashboard or email
-client. Optionally calls an LLM for richer narrative generation.
+Converts LIME and SHAP outputs into a human-readable plain-English explanation
+using rule-based templates. No LLM required — can be swapped in later.
 
-Dependencies: None (LLM call is optional)
+Public API:
+    generate_explanation(lime_result, shap_result, header_flags, url_flags) -> str
+    format_explanation_block(email_id, lime_result, shap_result, ...) -> str
 """
 
 import logging
-import os
 
 logger = logging.getLogger(__name__)
 
+# ── Label display strings ──────────────────────────────────────────────────
+_LABEL_DISPLAY = {
+    "legitimate":     "LEGITIMATE",
+    "phishing_human": "HUMAN-WRITTEN PHISHING",
+    "phishing_ai":    "AI-GENERATED PHISHING",
+}
 
-def generate_rule_based_narrative(
-    risk_score: float,
-    top_shap_features: list[tuple[str, float]],
-    lime_words: list[tuple[str, float]],
-    header_mismatches: list[str],
-    url_flags: list[str],
+# ── Words strongly associated with each class (for narrative enrichment) ──
+_CLASS_SIGNALS = {
+    "phishing_human": [
+        "verify", "urgent", "immediately", "suspend", "account", "password",
+        "click", "confirm", "credentials", "update", "security", "alert",
+    ],
+    "phishing_ai": [
+        "verify", "immediately", "credentials", "security", "team", "official",
+        "legitimate", "ensure", "protect", "hereby", "inform", "compliance",
+    ],
+    "legitimate": [
+        "meeting", "project", "attached", "regards", "team", "update",
+        "please", "schedule", "review", "draft", "feedback",
+    ],
+}
+
+# ── Attack-pattern descriptions keyed to trigger words ───────────────────
+_ATTACK_PATTERNS = {
+    "verify":      "account verification lure",
+    "credential":  "credential harvesting attempt",
+    "urgent":      "urgency manipulation tactic",
+    "immediately": "urgency manipulation tactic",
+    "suspend":     "account suspension threat",
+    "password":    "password harvesting attempt",
+    "click":       "click-through redirection lure",
+    "security":    "security alarm trigger",
+    "wire":        "financial fraud signal",
+    "transfer":    "financial fraud signal",
+    "invoice":     "invoice fraud signal",
+    "prince":      "advance-fee fraud (Nigerian 419) pattern",
+    "million":     "advance-fee fraud (Nigerian 419) pattern",
+    "lottery":     "prize/lottery scam pattern",
+    "won":         "prize/lottery scam pattern",
+    "inheritance": "advance-fee fraud pattern",
+}
+
+
+def _get_attack_pattern(word: str) -> str | None:
+    """Return a human-readable attack pattern for a known phishing keyword."""
+    return _ATTACK_PATTERNS.get(word.lower())
+
+
+def generate_explanation(
+    lime_result: dict,
+    shap_result: dict | None = None,
+    header_flags: list[str] | None = None,
+    url_flags: list[str] | None = None,
 ) -> str:
-    """Generate a human-readable explanation using rule-based templates.
+    """Generate a human-readable explanation from LIME and SHAP outputs.
 
     Args:
-        risk_score: Final risk score in [0, 100].
-        top_shap_features: Output of SHAPExplainer.top_features().
-        lime_words: Output of LIMETextExplainer.explain_instance().
-        header_mismatches: List of header mismatch descriptions from Layer 1.
-        url_flags: List of URL risk flags from Layer 2.
+        lime_result: Output of LIMEExplainer.explain_prediction().
+        shap_result: Output of SHAPExplainer.explain_local() (optional).
+        header_flags: Layer 1 protocol flags (optional).
+        url_flags: Layer 2 URL risk flags (optional).
 
     Returns:
         Multi-sentence plain-English explanation string.
     """
-    verdict = "phishing" if risk_score >= 75 else ("suspicious" if risk_score >= 40 else "legitimate")
-    parts: list[str] = [
-        f"This email has been classified as **{verdict}** with a risk score of {risk_score:.0f}/100."
-    ]
+    label       = lime_result.get("predicted_label", "unknown")
+    confidence  = lime_result.get("confidence", 0.0)
+    features    = lime_result.get("top_features", [])
+    class_probs = lime_result.get("class_probabilities", {})
 
-    if header_mismatches:
-        parts.append(
-            "Protocol checks raised the following concerns: " + "; ".join(header_mismatches) + "."
-        )
+    display = _LABEL_DISPLAY.get(label, label.upper())
+    conf_pct = confidence * 100
 
-    if url_flags:
-        parts.append("URL analysis detected: " + "; ".join(url_flags) + ".")
+    lines: list[str] = []
 
-    if lime_words:
-        top_words = [w for w, s in lime_words[:5] if s > 0]
-        if top_words:
-            parts.append(
-                "The following words contributed most to the phishing classification: "
-                + ", ".join(f'"{w}"' for w in top_words) + "."
-            )
-
-    if top_shap_features:
-        feat_str = ", ".join(f"{n} ({v:.3f})" for n, v in top_shap_features[:5])
-        parts.append(f"Top model features driving this decision: {feat_str}.")
-
-    return " ".join(parts)
-
-
-def generate_llm_narrative(
-    risk_score: float,
-    rule_based_narrative: str,
-) -> str:
-    """Optionally enhance the rule-based narrative with an LLM call.
-
-    Falls back gracefully to the rule-based narrative if the LLM endpoint
-    is not configured or the call fails.
-
-    Args:
-        risk_score: Final risk score in [0, 100].
-        rule_based_narrative: Output of generate_rule_based_narrative().
-
-    Returns:
-        Enhanced natural language explanation string.
-    """
-    import requests
-
-    endpoint = os.getenv("LLM_API_ENDPOINT", "")
-    model = os.getenv("LLM_MODEL_NAME", "llama4-scout")
-
-    if not endpoint:
-        return rule_based_narrative
-
-    prompt = (
-        "Rewrite the following technical phishing email analysis as a clear, concise explanation "
-        "for a non-technical user. Keep it under 3 sentences.\n\n"
-        f"Analysis: {rule_based_narrative}"
+    # ── Verdict line ──────────────────────────────────────────────────────
+    lines.append(
+        f"This email is classified as {display} (confidence: {conf_pct:.1f}%)."
     )
 
-    try:
-        resp = requests.post(
-            endpoint,
-            json={"model": model, "prompt": prompt, "max_tokens": 150},
-            timeout=8,
+    # ── Probability breakdown ─────────────────────────────────────────────
+    if class_probs:
+        prob_parts = [
+            f"{_LABEL_DISPLAY.get(k, k)}: {v*100:.1f}%"
+            for k, v in sorted(class_probs.items(), key=lambda x: -x[1])
+        ]
+        lines.append(f"Score breakdown — {' | '.join(prob_parts)}.")
+
+    # ── LIME top words ────────────────────────────────────────────────────
+    if features:
+        # Positive weights push toward predicted class; negative push away
+        phishing_words = [(w, wt) for w, wt in features if wt > 0][:5]
+        legit_words    = [(w, wt) for w, wt in features if wt < 0][:3]
+
+        if phishing_words:
+            word_phrases: list[str] = []
+            seen_patterns: set[str] = set()
+            for word, wt in phishing_words:
+                pattern = _get_attack_pattern(word)
+                phrase = f'"{word}" ({wt:+.3f})'
+                if pattern and pattern not in seen_patterns:
+                    phrase += f" [{pattern}]"
+                    seen_patterns.add(pattern)
+                word_phrases.append(phrase)
+            lines.append(
+                f"Key words driving this classification: {', '.join(word_phrases)}."
+            )
+
+        if legit_words and label != "legitimate":
+            counter_parts = [f'"{w}" ({wt:+.3f})' for w, wt in legit_words]
+            lines.append(
+                f"Mitigating legitimate signals: {', '.join(counter_parts)}."
+            )
+
+    # ── SHAP context ─────────────────────────────────────────────────────
+    if shap_result:
+        shap_cls = shap_result.get("per_class", {}).get(label, [])
+        if shap_cls:
+            top_shap = shap_cls[:3]
+            shap_parts = [f'"{w}" ({v:+.4f})' for w, v in top_shap]
+            lines.append(
+                f"Random Forest (SHAP) confirms these top features for {_LABEL_DISPLAY.get(label, label)}: "
+                f"{', '.join(shap_parts)}."
+            )
+
+    # ── Protocol / URL flags ──────────────────────────────────────────────
+    if header_flags:
+        lines.append(f"Protocol issues: {'; '.join(header_flags[:3])}.")
+    if url_flags:
+        lines.append(f"URL risk signals: {'; '.join(url_flags[:3])}.")
+
+    # ── Class-specific context ────────────────────────────────────────────
+    if label == "phishing_ai":
+        lines.append(
+            "Note: AI-generated phishing emails often use polished, formal language "
+            "that mimics legitimate communications — exercising extra caution is advised."
         )
-        resp.raise_for_status()
-        return resp.json().get("text", rule_based_narrative).strip()
-    except Exception as exc:
-        logger.warning("LLM narrative generation failed: %s", exc)
-        return rule_based_narrative
+    elif label == "phishing_human":
+        lines.append(
+            "This phishing email uses typical social engineering tactics to pressure "
+            "the recipient into taking immediate action."
+        )
+    elif label == "legitimate":
+        lines.append(
+            "No significant phishing indicators were detected. "
+            "The email content and structure are consistent with legitimate correspondence."
+        )
+
+    return " ".join(lines)
+
+
+def format_explanation_block(
+    email_id: str,
+    raw_text_snippet: str,
+    lime_result: dict,
+    shap_result: dict | None = None,
+    header_flags: list[str] | None = None,
+    url_flags: list[str] | None = None,
+    true_label: str | None = None,
+) -> str:
+    """Format a complete explanation block for display or logging.
+
+    Args:
+        email_id: Short identifier for the email (e.g. "test_email_001").
+        raw_text_snippet: First ~200 characters of the email body.
+        lime_result: Output of LIMEExplainer.explain_prediction().
+        shap_result: Output of SHAPExplainer.explain_local() (optional).
+        header_flags: Protocol authentication flags (optional).
+        url_flags: URL risk flags (optional).
+        true_label: Ground-truth label, if known (for demo/evaluation display).
+
+    Returns:
+        Formatted multi-line string ready for printing.
+    """
+    sep = "=" * 65
+    pred  = lime_result.get("predicted_label", "?")
+    conf  = lime_result.get("confidence", 0.0)
+    truth = f" (True: {_LABEL_DISPLAY.get(true_label, true_label)})" if true_label else ""
+    correct = " ✓" if true_label == pred else " ✗" if true_label else ""
+
+    narrative = generate_explanation(lime_result, shap_result, header_flags, url_flags)
+
+    lines = [
+        sep,
+        f"EMAIL: {email_id}{truth}{correct}",
+        f"PREDICTED: {_LABEL_DISPLAY.get(pred, pred)} ({conf*100:.1f}% confidence)",
+        sep,
+        f'TEXT SNIPPET: "{raw_text_snippet[:200].strip()}..."',
+        "",
+        "EXPLANATION:",
+        narrative,
+        "",
+        "TOP LIME FEATURES (word → weight toward predicted class):",
+    ]
+
+    for word, weight in (lime_result.get("top_features") or [])[:10]:
+        direction = "→ phishing" if weight > 0 else "→ legitimate"
+        lines.append(f"  {word:20s}  {weight:+.4f}  ({direction})")
+
+    if shap_result:
+        pred_cls_shap = shap_result.get("per_class", {}).get(pred, [])
+        if pred_cls_shap:
+            lines.append("")
+            lines.append(f"TOP SHAP FEATURES (Random Forest, class={_LABEL_DISPLAY.get(pred, pred)}):")
+            for word, val in pred_cls_shap[:10]:
+                lines.append(f"  {word:20s}  {val:+.5f}")
+
+    lines.append(sep)
+    return "\n".join(lines)
