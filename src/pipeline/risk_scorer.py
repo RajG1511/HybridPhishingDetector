@@ -104,7 +104,18 @@ class RiskScorer:
             "layer2_url": url_score,
             "layer3_semantic": self._score_semantic(signals),
         }
-        final_score = max(0, min(100, sum(layer_scores.values())))
+        
+        # Dynamic Normalization: Calculate total possible points based on active layers
+        active_max_points = self.protocol_points + self.url_points
+        if signals.semantic_available:
+            active_max_points += self.semantic_points
+            
+        raw_score_sum = sum(layer_scores.values())
+        
+        # Normalize to 0-100 scale regardless of how many layers are active
+        final_score = round((raw_score_sum / active_max_points) * 100) if active_max_points > 0 else 0
+        final_score = max(0, min(100, final_score))
+        
         label = self.label_for_score(final_score)
 
         logger.debug(
