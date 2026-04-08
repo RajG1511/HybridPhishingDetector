@@ -165,7 +165,7 @@ def main() -> None:
             
         dataset = dataset.loc[neg_indices.union(pos_indices)].copy()
         print("=" * 60)
-        print(f"🚩 CLASS BALANCING ENABLED")
+        print(f"   CLASS BALANCING ENABLED")
         print(f"   Downsampling majority class to match minority class.")
         print(f"   Samples per class: {target_size}")
         print(f"   Total Training Size: {len(dataset)}")

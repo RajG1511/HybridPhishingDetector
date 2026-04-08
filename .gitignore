@@ -53,3 +53,6 @@ Thumbs.db
 # Temporary logs and demo outputs
 demo_output*.txt
 *.log
+
+# Temporary eml test files
+test_eml.py

@@ -48,6 +48,7 @@ phishing-detector/
 │   │   │   └── eml_training_features.csv  # Primary training table for Layer 1/2 model
 │   │   └── embeddings/               # Cached DistilBERT / Word2Vec embeddings
 │   ├── synthetic/                     # Procedurally generated phishing samples
+│   ├── raw/kaggle/                    # Kaggle CSV datasets (Enron, CEAS, etc.)
 │   └── splits/                        # train / val / test splits (saved as .csv or .pkl)
 │
 ├── notebooks/
@@ -98,9 +99,13 @@ phishing-detector/
 │   │   ├── __init__.py
 │   │   ├── email_ingester.py         # .eml file parsing and raw data extraction
 │   │   ├── cascade_pipeline.py       # Full Layer 1 → 2 → 3 → 4 cascade logic
-│   │   ├── metadata_url_model.py     # Learned Layer 1/2 model wrapper (XGBoost/CatBoost)
+│   │   ├── metadata_url_model.py     # Learned Layer 1/2 model wrapper (XGBoost)
 │   │   └── risk_scorer.py            # Final 0–100 risk score with hybrid ML+rules floor
 │   │
+│   └── data/
+│       ├── __init__.py
+│       └── csv_processor.py          # Unified mapping for Kaggle Enron/CEAS data
+│
 │   └── utils/
 │       ├── __init__.py
 │       ├── data_loader.py            # Dataset downloading and loading utilities
@@ -249,8 +254,8 @@ These datasets contain raw `.eml` files with real email headers, enabling the mo
 
 | Dataset | Target Dir | Count | Notes |
 |---|---|---|---|
-| **EPVME** (malicious) | `data/raw/epvme/` | ~49K `.eml` | Real header attacks. **Capped at ~4,153 samples** for balance. 10% are adversarially upgraded. [GitHub](https://github.com/sunknighteric/EPVME-Dataset) |
-| **SpamAssassin** (legitimate) | `data/raw/spamassassin/` | ~4K emails | Authentic ham. **70% are augmented** with modern auth (30% left as legacy noise). [Apache](https://spamassassin.apache.org/old/publiccorpus/) |
+| **EPVME** (malicious) | `data/raw/epvme/` | ~49K `.eml` | Real header attacks. 10% are adversarially upgraded. [GitHub](https://github.com/sunknighteric/EPVME-Dataset) |
+| **SpamAssassin & Kaggle** (legitimate) | `data/raw/kaggle/` | ~40K emails | Authentic corporate ham. **70% are augmented** with modern auth (30% left as legacy noise). CSVs natively mapped via `csv_processor.py`. |
 
 ### Supplementary Data (Layer 3 — Semantic / NLP)
 
@@ -435,7 +440,7 @@ LOG_LEVEL=INFO
 ENVIRONMENT=development
 
 # Ratios
-EML_AUGMENT_RATIO=0.90
+EML_AUGMENT_RATIO=0.70
 EML_COMPROMISED_RATIO=0.10
 ```
 

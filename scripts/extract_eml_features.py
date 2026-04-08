@@ -35,6 +35,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config.settings import DATA_DIR, DEFAULT_COMPROMISED_RATIO, DEFAULT_AUGMENT_RATIO
 from src.pipeline.metadata_url_model import DEFAULT_FEATURE_NAMES
+from src.data.csv_processor import process_kaggle_csv
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,6 +47,7 @@ logger = logging.getLogger(__name__)
 # Directories
 EPVME_EML_DIR = DATA_DIR / "raw" / "epvme" / "eml"
 SPAMASSASSIN_EML_DIR = DATA_DIR / "raw" / "spamassassin" / "eml"
+KAGGLE_CSV_DIR = DATA_DIR / "raw" / "kaggle"
 OUTPUT_CSV = DATA_DIR / "processed" / "features" / "eml_training_features.csv"
 
 # Augmentation defaults
@@ -528,6 +530,31 @@ def main() -> None:
         )
         all_rows.extend(legitimate)
 
+    # Process Kaggle CSV Sources
+    if KAGGLE_CSV_DIR.exists():
+        csv_files = list(KAGGLE_CSV_DIR.glob("*.csv"))
+        if csv_files:
+            logger.info("Processing %d Kaggle CSV sources...", len(csv_files))
+            for csv_file in csv_files:
+                csv_rows = process_kaggle_csv(csv_file)
+                if csv_rows:
+                    # Apply schema consistency (one-hots and bounding)
+                    for row in csv_rows:
+                        # Protocol one-hots
+                        row.update(_onehot("spf", row.get("spf_status"), ("pass", "fail", "softfail", "none")))
+                        row.update(_onehot("dkim", row.get("dkim_status"), ("pass", "fail", "missing")))
+                        row.update(_onehot("arc", row.get("arc_status"), ("pass", "fail", "missing")))
+                        
+                        # Add missing defaults
+                        for name in DEFAULT_FEATURE_NAMES:
+                            if name not in row:
+                                row[name] = 0.0
+                        
+                        row["source"] = f"kaggle_{csv_file.stem}"
+                        row["_filename"] = f"{csv_file.stem}_row"
+                        
+                    all_rows.extend(csv_rows)
+
     if not all_rows:
         logger.error("No features were extracted successfully. Check logs for errors.")
         sys.exit(1)
@@ -583,13 +610,7 @@ def main() -> None:
                 (mal["spf_pass"] == 1.0).sum(), len(mal),
                 (mal["spf_pass"] == 1.0).sum() / max(len(mal), 1) * 100)
     
-    # Add strategic imbalance warning
-    if len(mal) > len(legit) * 2:
-        logger.warning("-" * 60)
-        logger.warning("🚩 STRATEGIC IMBALANCE DETECTED (Ratio %.1f:1)", len(mal)/len(legit))
-        logger.warning("   To prevent model bias, training will be capped at ~%d malicious samples.", len(legit))
-        logger.warning("   Roadmap: Acquire 20,000+ more Legitimate (Ham) files to unlock full 49k capacity.")
-    
+
     logger.info("=" * 60)
 
 

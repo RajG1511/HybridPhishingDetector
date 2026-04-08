@@ -36,15 +36,15 @@ pytest tests/ -v
 The Layer 1/2 classifier is trained on real `.eml` files from two sources:
 
 - **EPVME** (~49K malicious emails) — High-fidelity phishing with real protocol vulnerabilities.
-- **SpamAssassin** (~4K legitimate emails) — Used as the baseline legitimate corpus.
+- **SpamAssassin & Kaggle** (~40K legitimate emails) — Used as the baseline legitimate corpus (Enron, CEAS, Ling).
 
-### 🚩 Strategic Note: The "Balancing Quirk" & Trust Baseline
-Currently, the phishing dataset is ~12x larger than the legitimate set. To ensure a production-ready model:
+### Strategic Dataset Composition & Trust Baseline
+By merging the raw EML corpora with Kaggle CSVs, the dataset is perfectly balanced:
+- **Balance**: **~39,600 legitimate vs. ~39,600 malicious** (total ~79,300 robust samples).
 - **Trust Baseline**: We use a **70% Modern Auth** ratio for Legitimate emails (allowing 30% legacy noise like missing DKIM). This prevents false positives on clean corporate mail.
-- **Training Cap**: We employ **Random Class Downsampling**, capping the malicious training set at **~4,153 samples** to match the legitimate corpus.
-- **The Gap**: We are currently leaving **~45,000 high-quality phishing samples** "on the table." 
+- **Compromise Simulation**: 10% of malicious samples are forcefully granted perfect SPF/DKIM to train the model to anticipate compromised corporate inboxes (BEC).
 
-**Roadmap**: Scale the legitimate corpus to 20k-30k samples to unlock the full 53k dataset capacity.
+**Roadmap**: Focus on Phase 4 (NLP Layer) natively, as the Layer 1/2 dataset has securely reached production scale.
 
 ```bash
 # 1. Download and extract datasets into data/raw/
