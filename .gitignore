@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+.pytest_cache/
 dist/
 build/
 .eggs/
@@ -12,14 +13,17 @@ venv/
 .venv/
 env/
 
-# Data — large files should not be committed
+# Data - large files should not be committed
 data/raw/
 data/processed/
 data/synthetic/
 data/splits/
+domain_age_cache.json
 
-# Models — serialized weights
+# Models and generated experiment artifacts
 models/
+results/
+catboost_info/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -41,3 +45,11 @@ docker/*.log
 # OS
 .DS_Store
 Thumbs.db
+
+# Gemini / AI assistant artifacts
+.gemini/
+.claude/
+
+# Temporary logs and demo outputs
+demo_output*.txt
+*.log

@@ -43,13 +43,13 @@ def extract_header_fields(msg: Message) -> dict[str, str | None]:
         received_spf, dkim_signature, arc_seal.
     """
     return {
-        "from": msg.get("From"),
-        "reply_to": msg.get("Reply-To"),
-        "return_path": msg.get("Return-Path"),
-        "message_id": msg.get("Message-ID"),
-        "received_spf": msg.get("Received-SPF"),
-        "dkim_signature": msg.get("DKIM-Signature"),
-        "arc_seal": msg.get("ARC-Seal"),
+        "from": _coerce_header_value(msg.get("From")),
+        "reply_to": _coerce_header_value(msg.get("Reply-To")),
+        "return_path": _coerce_header_value(msg.get("Return-Path")),
+        "message_id": _coerce_header_value(msg.get("Message-ID")),
+        "received_spf": _coerce_header_value(msg.get("Received-SPF")),
+        "dkim_signature": _coerce_header_value(msg.get("DKIM-Signature")),
+        "arc_seal": _coerce_header_value(msg.get("ARC-Seal")),
     }
 
 
@@ -89,3 +89,10 @@ def detect_header_mismatches(fields: dict[str, str | None]) -> list[str]:
 
     logger.debug("Header mismatch check: %d issues found", len(mismatches))
     return mismatches
+
+
+def _coerce_header_value(value: object | None) -> str | None:
+    """Normalize parsed header values into plain strings."""
+    if value is None:
+        return None
+    return str(value)

@@ -16,8 +16,6 @@ Merges into a single DataFrame with columns:
 
 Public API:
     load_all_datasets() -> pd.DataFrame
-    load_csv_dataset(path, text_col, label_col, source_name) -> pd.DataFrame   [legacy]
-    combine_datasets(dfs, shuffle, random_state) -> pd.DataFrame               [legacy]
 """
 
 import json
@@ -253,11 +251,6 @@ def load_all_datasets(shuffle: bool = True, random_state: int = 42) -> pd.DataFr
     # ── Traditional phishing datasets ─────────────────────────────────────────
     trad = RAW_DIR / "phishing_traditional"
     if trad.exists():
-        # CEAS_08: spam competition dataset (label 1 = spam)
-        p = trad / "CEAS_08.csv"
-        if p.exists():
-            all_records.extend(_load_traditional_csv(p, "body", "CEAS_08", subject_col="subject"))
-
         # Enron: real corporate email (label 0=legit, 1=spam)
         p = trad / "Enron.csv"
         if p.exists():
@@ -316,56 +309,3 @@ def load_all_datasets(shuffle: bool = True, random_state: int = 42) -> pd.DataFr
         df["unified_label"].value_counts().to_dict(),
     )
     return df
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Legacy helpers (used by other modules)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def load_csv_dataset(
-    path: Path,
-    text_col: str,
-    label_col: str,
-    source_name: str = "",
-) -> pd.DataFrame:
-    """Load a single CSV and normalize to standard schema (legacy API).
-
-    Args:
-        path: CSV file path.
-        text_col: Column name containing email body text.
-        label_col: Column name containing integer labels.
-        source_name: Optional provenance tag.
-
-    Returns:
-        DataFrame with columns: text, label, source.
-    """
-    df = _read_csv_safe(path)
-    df = df[[text_col, label_col]].dropna()
-    df = df.rename(columns={text_col: "text", label_col: "label"})
-    df["text"] = df["text"].astype(str)
-    df["label"] = df["label"].astype(int)
-    df["source"] = source_name or path.stem
-    logger.info("Loaded %d samples from %s", len(df), path)
-    return df[["text", "label", "source"]]
-
-
-def combine_datasets(
-    dfs: list,
-    shuffle: bool = True,
-    random_state: int = 42,
-) -> pd.DataFrame:
-    """Concatenate and shuffle multiple DataFrames (legacy API).
-
-    Args:
-        dfs: List of DataFrames with standard schema.
-        shuffle: Whether to shuffle the combined dataset.
-        random_state: Seed for reproducibility.
-
-    Returns:
-        Combined and optionally shuffled DataFrame.
-    """
-    combined = pd.concat(dfs, ignore_index=True)
-    if shuffle:
-        combined = combined.sample(frac=1, random_state=random_state).reset_index(drop=True)
-    logger.info("Combined dataset: %d total samples", len(combined))
-    return combined

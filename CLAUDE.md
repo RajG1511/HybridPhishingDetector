@@ -7,7 +7,7 @@ This project implements a **Hybrid Phishing Detection Framework** that combines 
 The architecture follows a **cascading triage pipeline** with four layers:
 
 1. **Layer 1 — Cryptographic & Protocol Authentication**: SPF, DKIM, ARC validation and header mismatch detection.
-2. **Layer 2 — Lexical & URL Feature Engineering**: URL entropy, length, homoglyph detection, domain age, IP presence, subdomain depth.
+2. **Layer 2 — Lexical & URL Feature Engineering**: URL entropy, length, homoglyph detection, IP presence, subdomain depth.
 3. **Layer 3 — Semantic Analysis & Super Learner Ensemble**: TF-IDF + DistilBERT embeddings fed into stacked ML models (RF, SVM, XGBoost → Logistic Regression meta-learner) with a parallel BiLSTM.
 4. **Layer 4 — RAG-Driven Contextual Profiling** *(optional/advanced)*: Lightweight LLM + user history vector DB for grey-zone emails.
 
@@ -35,12 +35,17 @@ phishing-detector/
 │
 ├── data/
 │   ├── raw/                           # Unprocessed downloads — DO NOT commit large files
-│   │   ├── ham/                       # Legitimate email corpora (Enron, etc.)
+│   │   ├── epvme/                     # EPVME malicious .eml dataset (~49K files)
+│   │   │   ├── _repo/                # Cloned GitHub repo with zip archives
+│   │   │   └── eml/                  # Extracted .eml files (flattened)
+│   │   ├── spamassassin/             # SpamAssassin legitimate email corpus (~4K files)
+│   │   │   └── eml/                  # Extracted email files (flattened)
 │   │   ├── phishing_traditional/      # Legacy human-written phishing datasets
 │   │   ├── phishing_ai/              # AI-generated phishing datasets
 │   │   └── urls/                      # URL-specific datasets
 │   ├── processed/                     # Cleaned, tokenized, vectorized data
-│   │   ├── features/                  # Extracted feature CSVs / parquet files
+│   │   ├── features/                  # Extracted feature CSVs
+│   │   │   └── eml_training_features.csv  # Primary training table for Layer 1/2 model
 │   │   └── embeddings/               # Cached DistilBERT / Word2Vec embeddings
 │   ├── synthetic/                     # Procedurally generated phishing samples
 │   └── splits/                        # train / val / test splits (saved as .csv or .pkl)
@@ -66,7 +71,7 @@ phishing-detector/
 │   │   ├── __init__.py
 │   │   ├── url_extractor.py          # Regex-based URL extraction from email body
 │   │   ├── lexical_features.py       # Length, entropy, IP presence, homoglyphs, subdomain depth
-│   │   └── domain_intel.py           # Domain age lookup, WHOIS queries, reputation scoring
+│   │   └── domain_intel.py           # Domain intelligence utility (Preserved for future use)
 │   │
 │   ├── layer3_semantic/              # Layer 3: Semantic Analysis & Ensemble
 │   │   ├── __init__.py
@@ -93,7 +98,8 @@ phishing-detector/
 │   │   ├── __init__.py
 │   │   ├── email_ingester.py         # .eml file parsing and raw data extraction
 │   │   ├── cascade_pipeline.py       # Full Layer 1 → 2 → 3 → 4 cascade logic
-│   │   └── risk_scorer.py            # Final 0–100 risk score computation
+│   │   ├── metadata_url_model.py     # Learned Layer 1/2 model wrapper (XGBoost/CatBoost)
+│   │   └── risk_scorer.py            # Final 0–100 risk score with hybrid ML+rules floor
 │   │
 │   └── utils/
 │       ├── __init__.py
@@ -235,27 +241,25 @@ beautifulsoup4>=4.12.0         # HTML stripping from email bodies
 
 ---
 
-## Datasets to Download
+## Datasets
 
-Place downloaded datasets into the corresponding `data/raw/` subdirectories.
+### Primary Training Data (Layer 1/2 — Metadata + URL Model)
 
-### AI-Generated Phishing (→ `data/raw/phishing_ai/`)
-| Dataset | Source | Notes |
+These datasets contain raw `.eml` files with real email headers, enabling the model to learn SPF/DKIM/ARC authentication patterns. Downloaded automatically via `scripts/download_datasets.py`.
+
+| Dataset | Target Dir | Count | Notes |
+|---|---|---|---|
+| **EPVME** (malicious) | `data/raw/epvme/` | ~49K `.eml` | Real header attacks. **Capped at ~4,153 samples** for balance. 10% are adversarially upgraded. [GitHub](https://github.com/sunknighteric/EPVME-Dataset) |
+| **SpamAssassin** (legitimate) | `data/raw/spamassassin/` | ~4K emails | Authentic ham. **70% are augmented** with modern auth (30% left as legacy noise). [Apache](https://spamassassin.apache.org/old/publiccorpus/) |
+
+### Supplementary Data (Layer 3 — Semantic / NLP)
+
+| Dataset | Target Dir | Notes |
 |---|---|---|
-| Human-LLM Generated Phishing-Legitimate Emails | [Kaggle](https://www.kaggle.com/datasets/francescogreco97/human-llm-generated-phishing-legitimate-emails) | 4,000 emails — WormGPT + ChatGPT generated, multiclass labeled |
-| PhishFuzzer | [GitHub](https://github.com/DataPhish/PhishFuzzer) | 23,100 LLM-generated variants — three-class labels (Phishing/Spam/Valid) with URL + attachment metadata |
-
-### Traditional/Legacy Phishing (→ `data/raw/phishing_traditional/`)
-| Dataset | Source | Notes |
-|---|---|---|
-| Phishing Email Dataset (Naser) | [Kaggle](https://www.kaggle.com/datasets/naserabdullahalam/phishing-email-dataset) | 135,894 samples — broad spectrum of traditional phishing + legitimate |
-| Combined Enron + Legacy Spam | [arXiv paper](https://arxiv.org/html/2507.17978v2) | ~82,500 emails — includes ~40K Enron legitimate emails for benign baseline |
-| Seven Phishing Email Datasets | [Figshare](https://figshare.com/articles/dataset/Seven_Phishing_Email_Datasets/25432108) | 203,000 emails with full body text — ideal for NLP pipelines |
-
-### Legitimate/Ham Emails (→ `data/raw/ham/`)
-| Dataset | Source | Notes |
-|---|---|---|
-| Enron Email Dataset | Included in combined dataset above | ~40K real corporate emails — communication structure baseline |
+| Human-LLM Generated Phishing-Legitimate Emails | `data/raw/phishing_ai/` | 4,000 emails — WormGPT + ChatGPT generated. [Kaggle](https://www.kaggle.com/datasets/francescogreco97/human-llm-generated-phishing-legitimate-emails) |
+| PhishFuzzer | `data/raw/phishing_ai/` | 23,100 LLM-generated variants with URL + attachment metadata. [GitHub](https://github.com/DataPhish/PhishFuzzer) |
+| Phishing Email Dataset (Naser) | `data/raw/phishing_traditional/` | 135,894 samples. [Kaggle](https://www.kaggle.com/datasets/naserabdullahalam/phishing-email-dataset) |
+| Seven Phishing Email Datasets | `data/raw/phishing_traditional/` | 203,000 emails with full body text. [Figshare](https://figshare.com/articles/dataset/Seven_Phishing_Email_Datasets/25432108) |
 
 ### URL Datasets (→ `data/raw/urls/`)
 | Dataset | Source | Notes |
@@ -271,22 +275,35 @@ This file should define:
 ```python
 from pathlib import Path
 
+# === Pipeline Augmentation ===
+DEFAULT_AUGMENT_RATIO = 0.90
+DEFAULT_COMPROMISED_RATIO = 0.10
+
 # === Paths ===
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
+FEATURES_DIR = PROCESSED_DIR / "features"
 MODELS_DIR = PROJECT_ROOT / "models"
+METADATA_URL_MODELS_DIR = MODELS_DIR / "metadata_url"
+
+# Raw .eml dataset directories
+EPVME_DATA_DIR = RAW_DIR / "epvme" / "eml"
+SPAMASSASSIN_DATA_DIR = RAW_DIR / "spamassassin" / "eml"
+
+# Processed feature tables
+EML_TRAINING_FEATURES_PATH = FEATURES_DIR / "eml_training_features.csv"
+
+# === Layer 2 / Risk Scoring ===
+LAYER1_MAX_RISK_POINTS = 30
+LAYER2_MAX_RISK_POINTS = 25
+LAYER3_MAX_RISK_POINTS = 45
+METADATA_URL_MODEL_PATH = METADATA_URL_MODELS_DIR / "metadata_url_model.joblib"
 
 # === Model Hyperparameters ===
 TFIDF_MAX_FEATURES = 10_000
 DISTILBERT_MODEL_NAME = "distilbert-base-uncased"
-BILSTM_HIDDEN_DIM = 128
-BILSTM_NUM_LAYERS = 2
-BILSTM_DROPOUT = 0.3
-BILSTM_EPOCHS = 20
-BILSTM_BATCH_SIZE = 64
-BILSTM_LEARNING_RATE = 1e-3
 
 # === Ensemble Thresholds ===
 GREY_ZONE_LOW = 0.40    # Below this → benign
@@ -406,7 +423,6 @@ Thumbs.db
 
 ```
 # API keys for optional external services
-WHOIS_API_KEY=
 VIRUSTOTAL_API_KEY=
 CTI_PLATFORM_API_KEY=
 
@@ -417,6 +433,10 @@ LLM_MODEL_NAME=llama4-scout
 # General
 LOG_LEVEL=INFO
 ENVIRONMENT=development
+
+# Ratios
+EML_AUGMENT_RATIO=0.90
+EML_COMPROMISED_RATIO=0.10
 ```
 
 ---

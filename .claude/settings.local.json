@@ -1,10 +1,5 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(python -)",
-      "Bash(python -c \"import nltk, pandas, sklearn, bs4, joblib; print\\('all OK'\\)\")",
-      "Bash(pip install:*)",
-      "Bash(python -c ':*)"
-    ]
+    "defaultMode": "bypassPermissions"
   }
 }

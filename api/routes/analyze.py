@@ -8,9 +8,8 @@ phishing risk score with XAI explanation.
 import logging
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
 
-from api.schemas import AnalyzeResponse, AnalyzeTextRequest, FeatureAttribution
+from api.schemas import AnalyzeResponse, AnalyzeTextRequest
 from src.pipeline.email_ingester import ingest_raw
 from src.pipeline.cascade_pipeline import CascadePipeline
 
@@ -29,6 +28,32 @@ def set_pipeline(pipeline: CascadePipeline) -> None:
     """
     global _pipeline
     _pipeline = pipeline
+
+
+def _build_response(result) -> AnalyzeResponse:
+    """Convert a DetectionResult into the current API response schema."""
+    layer1 = result.layer_outputs.get("layer1", {})
+    layer2 = result.layer_outputs.get("layer2", {})
+    layer3 = result.layer_outputs.get("layer3", {})
+
+    layer1_flags = list(layer1.get("header_issues", []))
+    if not layer1_flags:
+        layer1_flags = list(layer1.get("metadata_flags", []))
+
+    layer2_flags = list(layer2.get("url_flags", []))
+    layer3_proba = float(layer3.get("phishing_probability", 0.0))
+
+    return AnalyzeResponse(
+        risk_score=result.risk_score,
+        verdict=result.verdict,
+        narrative=result.explanation,
+        layer1_flags=layer1_flags,
+        layer2_flags=layer2_flags,
+        layer3_proba=layer3_proba,
+        layer4_used=result.layer4_used,
+        shap_features=[],
+        lime_words=[],
+    )
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -51,17 +76,7 @@ async def analyze_text(request: AnalyzeTextRequest) -> AnalyzeResponse:
         logger.exception("Analysis failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return AnalyzeResponse(
-        risk_score=result.risk_score,
-        verdict=result.verdict,
-        narrative=result.narrative,
-        layer1_flags=result.layer1_flags,
-        layer2_flags=result.layer2_flags,
-        layer3_proba=result.layer3_proba,
-        layer4_used=result.layer4_used,
-        shap_features=[FeatureAttribution(feature=f, weight=w) for f, w in result.shap_features],
-        lime_words=[FeatureAttribution(feature=f, weight=w) for f, w in result.lime_words],
-    )
+    return _build_response(result)
 
 
 @router.post("/analyze/upload", response_model=AnalyzeResponse)
@@ -88,14 +103,4 @@ async def analyze_upload(file: UploadFile = File(...)) -> AnalyzeResponse:
         logger.exception("Analysis failed for uploaded file")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return AnalyzeResponse(
-        risk_score=result.risk_score,
-        verdict=result.verdict,
-        narrative=result.narrative,
-        layer1_flags=result.layer1_flags,
-        layer2_flags=result.layer2_flags,
-        layer3_proba=result.layer3_proba,
-        layer4_used=result.layer4_used,
-        shap_features=[FeatureAttribution(feature=f, weight=w) for f, w in result.shap_features],
-        lime_words=[FeatureAttribution(feature=f, weight=w) for f, w in result.lime_words],
-    )
+    return _build_response(result)

@@ -77,11 +77,11 @@ def ingest_raw(raw: bytes | str) -> ParsedEmail:
 
     parsed = ParsedEmail(
         raw_bytes=raw_bytes,
-        headers={k.lower(): v for k, v in msg.items()},
-        from_addr=msg.get("From", ""),
-        reply_to=msg.get("Reply-To"),
-        return_path=msg.get("Return-Path"),
-        subject=msg.get("Subject", ""),
+        headers={k.lower(): _coerce_header_value(v) for k, v in msg.items()},
+        from_addr=_coerce_header_value(msg.get("From", "")) or "",
+        reply_to=_coerce_header_value(msg.get("Reply-To")),
+        return_path=_coerce_header_value(msg.get("Return-Path")),
+        subject=_coerce_header_value(msg.get("Subject", "")) or "",
         plain_body=plain_body,
         html_body=html_body,
         attachment_names=attachment_names,
@@ -89,6 +89,13 @@ def ingest_raw(raw: bytes | str) -> ParsedEmail:
 
     logger.debug("Ingested email from %s (plain=%d chars, html=%d chars)", parsed.from_addr, len(plain_body), len(html_body))
     return parsed
+
+
+def _coerce_header_value(value: object | None) -> str | None:
+    """Normalize parsed header values into plain strings."""
+    if value is None:
+        return None
+    return str(value)
 
 
 def _extract_parts(msg: Message) -> tuple[str, str, list[str]]:

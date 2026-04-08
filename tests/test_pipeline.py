@@ -1,14 +1,9 @@
-"""
-Integration Tests — Full Cascade Pipeline
+"""Integration tests for the cascade pipeline and risk scorer."""
 
-Tests the end-to-end pipeline from raw email ingestion through risk scoring,
-using synthetic emails without requiring trained models.
-"""
+from __future__ import annotations
 
-import pytest
-
-from src.pipeline.email_ingester import ingest_raw
 from src.pipeline.cascade_pipeline import CascadePipeline, _score_to_verdict
+from src.pipeline.email_ingester import ingest_raw
 from src.pipeline.risk_scorer import RiskScorer, RiskSignals
 
 
@@ -32,8 +27,12 @@ class TestRiskScorer:
     def test_zero_signals_gives_low_score(self) -> None:
         scorer = RiskScorer()
         signals = RiskSignals()
+
         score = scorer.compute(signals)
+        result = scorer.score(signals)
+
         assert score == 0
+        assert result.label == "safe"
 
     def test_all_failures_gives_high_score(self) -> None:
         scorer = RiskScorer()
@@ -42,10 +41,18 @@ class TestRiskScorer:
             dkim_valid=False,
             spf_pass=False,
             url_flags=["IP-based URL", "Homoglyph URL"],
+            url_feature_summary={
+                "has_ip_max": 1.0,
+                "has_homoglyph_max": 1.0,
+                "suspicious_tld_max": 1.0,
+            },
             ensemble_proba=0.95,
         )
-        score = scorer.compute(signals)
-        assert score >= 75
+
+        result = scorer.score(signals)
+
+        assert result.score >= 75
+        assert result.label == "phishing"
 
     def test_score_capped_at_100(self) -> None:
         scorer = RiskScorer()
@@ -56,20 +63,72 @@ class TestRiskScorer:
             url_flags=["a"] * 50,
             ensemble_proba=1.0,
         )
+
         assert scorer.compute(signals) == 100
 
 
 class TestCascadePipeline:
     def test_pipeline_runs_without_models(self, raw_phishing_email: bytes) -> None:
-        pipeline = CascadePipeline()
+        pipeline = CascadePipeline(metadata_url_model_path=None)
         parsed = ingest_raw(raw_phishing_email)
+
         result = pipeline.run(parsed)
+
         assert 0 <= result.risk_score <= 100
-        assert result.verdict in ("benign", "suspicious", "phishing")
+        assert result.verdict in ("safe", "suspicious", "phishing")
+        assert result.predicted_label in ("unknown", "legitimate", "phishing_human", "phishing_ai")
+        assert "layer1" in result.layer_outputs
+        assert "layer2" in result.layer_outputs
+        assert "layer3" in result.layer_outputs
+        assert "layer4" in result.layer_outputs
+        assert "metadata_features" in result.layer_outputs["layer1"]
+        assert result.layer_outputs["layer4"]["status"] == "placeholder"
+        assert result.layer_outputs["layer4"]["used"] is False
+        assert result.layer4_used is False
+        assert result.explanation
+
+    def test_pipeline_integrates_mocked_layers(self, raw_phishing_email: bytes) -> None:
+        def mock_layer1(_parsed) -> dict[str, object]:
+            return {
+                "spf": "fail",
+                "dkim": "fail",
+                "arc": "missing",
+                "header_mismatch": True,
+                "header_issues": ["Reply-To mismatch"],
+                "protocol_risk_score": 65,
+            }
+
+        def mock_layer3(_parsed) -> dict[str, object]:
+            return {
+                "predicted_label": "phishing_ai",
+                "confidence": 0.91,
+                "class_probabilities": {
+                    "legitimate": 0.04,
+                    "phishing_human": 0.05,
+                    "phishing_ai": 0.91,
+                },
+            }
+
+        pipeline = CascadePipeline(
+            layer1=mock_layer1,
+            layer3=mock_layer3,
+            metadata_url_model_path=None,
+        )
+
+        result = pipeline.run(ingest_raw(raw_phishing_email))
+
+        assert result.predicted_label == "phishing_ai"
+        assert result.confidence == 0.91
+        assert result.layer_outputs["layer1"]["protocol_risk_score"] == 65
+        assert result.layer_outputs["layer2"]["url_count"] >= 1
+        assert result.risk_score >= 60
+        assert result.layer_outputs["layer4"]["eligible"] is True
+        assert result.layer_outputs["layer4"]["status"] == "placeholder"
+        assert result.verdict in ("suspicious", "phishing")
 
     def test_verdict_mapping(self) -> None:
-        assert _score_to_verdict(0) == "benign"
-        assert _score_to_verdict(39) == "benign"
+        assert _score_to_verdict(0) == "safe"
+        assert _score_to_verdict(39) == "safe"
         assert _score_to_verdict(40) == "suspicious"
         assert _score_to_verdict(74) == "suspicious"
         assert _score_to_verdict(75) == "phishing"

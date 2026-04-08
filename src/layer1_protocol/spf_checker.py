@@ -11,8 +11,6 @@ import logging
 import re
 from enum import Enum
 
-import dns.resolver
-
 logger = logging.getLogger(__name__)
 
 
@@ -35,6 +33,13 @@ def get_spf_record(domain: str) -> str | None:
     Returns:
         The SPF record string, or None if not found.
     """
+    try:
+        import dns.exception
+        import dns.resolver
+    except ImportError:
+        logger.warning("dnspython is not installed; SPF DNS lookup skipped")
+        return None
+
     try:
         answers = dns.resolver.resolve(domain, "TXT")
         for rdata in answers:

@@ -40,15 +40,22 @@ def fit_tfidf(corpus: list[str]) -> TfidfVectorizer:
     Returns:
         Fitted TfidfVectorizer instance.
     """
+    effective_min_df = 1 if len(corpus) < 5 else 2
+
     vec = TfidfVectorizer(
         max_features=TFIDF_MAX_FEATURES,
         sublinear_tf=True,
         ngram_range=(1, 2),
-        min_df=2,
+        min_df=effective_min_df,
         token_pattern=r"(?u)\b[a-z]{2,}\b",
     )
     vec.fit(corpus)
-    logger.info("TF-IDF fitted on %d documents (%d features)", len(corpus), len(vec.vocabulary_))
+    logger.info(
+        "TF-IDF fitted on %d documents (%d features, min_df=%d)",
+        len(corpus),
+        len(vec.vocabulary_),
+        effective_min_df,
+    )
     return vec
 
 
