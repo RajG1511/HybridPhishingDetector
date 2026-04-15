@@ -10,8 +10,11 @@ Dependencies: Python standard library `email` module, beautifulsoup4
 
 import email
 import logging
+import re
 from dataclasses import dataclass, field
+from email import policy
 from email.message import Message
+from html.parser import HTMLParser
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -68,12 +71,14 @@ def ingest_raw(raw: bytes | str) -> ParsedEmail:
     """
     if isinstance(raw, str):
         raw_bytes = raw.encode("utf-8", errors="replace")
-        msg = email.message_from_string(raw)
+        msg = email.message_from_string(raw, policy=policy.default)
     else:
         raw_bytes = raw
-        msg = email.message_from_bytes(raw)
+        msg = email.message_from_bytes(raw, policy=policy.default)
 
     plain_body, html_body, attachment_names = _extract_parts(msg)
+    if not plain_body and html_body:
+        plain_body = _html_to_text(html_body)
 
     parsed = ParsedEmail(
         raw_bytes=raw_bytes,
@@ -139,3 +144,34 @@ def _extract_parts(msg: Message) -> tuple[str, str, list[str]]:
                 plain_parts.append(text)
 
     return "\n".join(plain_parts), "\n".join(html_parts), attachments
+
+
+def _html_to_text(html_body: str) -> str:
+    """Best-effort HTML-to-text fallback for HTML-only emails."""
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        logger.debug("beautifulsoup4 unavailable; using stdlib HTML parser fallback")
+        parser = _HTMLTextExtractor()
+        parser.feed(html_body)
+        text = parser.get_text()
+    else:
+        text = BeautifulSoup(html_body, "html.parser").get_text(separator=" ", strip=True)
+
+    return re.sub(r"\s+([.,!?;:])", r"\1", text)
+
+
+class _HTMLTextExtractor(HTMLParser):
+    """Minimal HTML-to-text extractor for environments without BeautifulSoup."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._chunks: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        cleaned = data.strip()
+        if cleaned:
+            self._chunks.append(cleaned)
+
+    def get_text(self) -> str:
+        return " ".join(self._chunks)

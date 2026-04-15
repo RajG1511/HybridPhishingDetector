@@ -12,13 +12,20 @@ import logging
 import re
 from dataclasses import asdict, dataclass, field
 from email.message import Message
-from email.utils import parseaddr
 from typing import Any
 
 from src.layer1_protocol.arc_validator import validate_arc
 from src.layer1_protocol.dkim_verifier import has_dkim_header, verify_dkim
-from src.layer1_protocol.header_parser import detect_header_mismatches, extract_header_fields
-from src.layer1_protocol.spf_checker import SPFResult, parse_received_spf_header
+from src.layer1_protocol.header_parser import (
+    detect_header_mismatches,
+    extract_address_domain,
+    extract_header_fields,
+)
+from src.layer1_protocol.spf_checker import (
+    SPFResult,
+    extract_sender_ip,
+    resolve_spf_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +44,7 @@ class MetadataFeatureSet:
     return_path_domain: str
     message_id: str | None
     message_id_domain: str
+    sender_ip: str
     spf: str
     dkim: str
     arc: str
@@ -83,16 +91,18 @@ def extract_metadata_features(email_input: Message | bytes | str | Any) -> Metad
     """
     message, raw_bytes = _normalize_email_input(email_input)
     fields = extract_header_fields(message)
+    received_headers = [_safe_string(value) for value in message.get_all("Received", [])]
 
     from_address = fields.get("from") or ""
     reply_to_address = fields.get("reply_to")
     return_path_address = fields.get("return_path")
     message_id = fields.get("message_id")
 
-    from_domain = _extract_address_domain(from_address)
-    reply_to_domain = _extract_address_domain(reply_to_address or "")
-    return_path_domain = _extract_address_domain(return_path_address or "")
+    from_domain = extract_address_domain(from_address)
+    reply_to_domain = extract_address_domain(reply_to_address or "")
+    return_path_domain = extract_address_domain(return_path_address or "")
     message_id_domain = _extract_message_id_domain(message_id)
+    sender_ip = extract_sender_ip(received_headers) or ""
 
     header_issues = detect_header_mismatches(fields)
     from_reply_to_mismatch = bool(reply_to_domain and from_domain and reply_to_domain != from_domain)
@@ -107,7 +117,12 @@ def extract_metadata_features(email_input: Message | bytes | str | Any) -> Metad
             f"Message-ID domain ({message_id_domain}) differs from From domain ({from_domain})"
         )
 
-    spf_status = parse_received_spf_header(fields.get("received_spf") or "").value
+    spf_status = resolve_spf_status(
+        domain=return_path_domain or from_domain,
+        sender_ip=sender_ip or None,
+        received_spf_header=fields.get("received_spf"),
+        authentication_results_header=fields.get("authentication_results"),
+    ).value
     dkim_status = _detect_dkim_status(raw_bytes, bool(fields.get("dkim_signature")))
     arc_status = _detect_arc_status(raw_bytes)
 
@@ -120,7 +135,7 @@ def extract_metadata_features(email_input: Message | bytes | str | Any) -> Metad
         arc_status=arc_status,
         has_message_id=bool(message_id),
         has_authentication_results=bool(message.get("Authentication-Results")),
-        num_received_headers=len(message.get_all("Received", [])),
+        num_received_headers=len(received_headers),
     )
 
     protocol_risk_score = _score_metadata_risk(
@@ -132,7 +147,7 @@ def extract_metadata_features(email_input: Message | bytes | str | Any) -> Metad
         arc_status=arc_status,
         has_message_id=bool(message_id),
         has_authentication_results=bool(message.get("Authentication-Results")),
-        num_received_headers=len(message.get_all("Received", [])),
+        num_received_headers=len(received_headers),
     )
 
     return MetadataFeatureSet(
@@ -144,6 +159,7 @@ def extract_metadata_features(email_input: Message | bytes | str | Any) -> Metad
         return_path_domain=return_path_domain,
         message_id=message_id,
         message_id_domain=message_id_domain,
+        sender_ip=sender_ip,
         spf=spf_status,
         dkim=dkim_status,
         arc=arc_status,
@@ -154,7 +170,7 @@ def extract_metadata_features(email_input: Message | bytes | str | Any) -> Metad
         has_received_spf=bool(fields.get("received_spf")),
         has_authentication_results=bool(message.get("Authentication-Results")),
         has_arc_headers=bool(fields.get("arc_seal")),
-        num_received_headers=len(message.get_all("Received", [])),
+        num_received_headers=len(received_headers),
         from_reply_to_mismatch=from_reply_to_mismatch,
         from_return_path_mismatch=from_return_path_mismatch,
         message_id_domain_mismatch=message_id_domain_mismatch,
@@ -183,14 +199,6 @@ def _normalize_email_input(email_input: Message | bytes | str | Any) -> tuple[Me
         return email.message_from_bytes(raw_bytes), raw_bytes
 
     raise TypeError("Unsupported email input type for metadata feature extraction")
-
-
-def _extract_address_domain(address: str) -> str:
-    """Extract a normalized domain from an RFC 5322 address field."""
-    _, parsed_address = parseaddr(address)
-    if "@" not in parsed_address:
-        return ""
-    return parsed_address.rsplit("@", 1)[-1].strip(">").lower()
 
 
 def _extract_message_id_domain(message_id: str | None) -> str:
@@ -223,6 +231,17 @@ def _detect_arc_status(raw_bytes: bytes) -> str:
     if cv in {"pass", "fail"}:
         return cv
     return "unknown"
+
+
+def analyze_protocol_authentication(email_input: Message | bytes | str | Any) -> dict[str, Any]:
+    """Run Layer 1 analysis and return the pipeline contract dictionary."""
+    return extract_metadata_features(email_input).to_output_dict()
+
+
+def _safe_string(value: object | None) -> str:
+    if value is None:
+        return ""
+    return str(value)
 
 
 def _build_metadata_flags(
@@ -325,5 +344,6 @@ def _score_metadata_risk(
 
 __all__ = [
     "MetadataFeatureSet",
+    "analyze_protocol_authentication",
     "extract_metadata_features",
 ]

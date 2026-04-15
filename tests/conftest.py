@@ -5,41 +5,33 @@ Provides reusable fixtures for email parsing, feature extraction, and pipeline
 tests. Fixtures use minimal synthetic data to avoid requiring downloaded datasets.
 """
 
+from pathlib import Path
+
 import pytest
 
 
-SAMPLE_RAW_EMAIL = """\
-From: attacker@evil-bank.com
-Reply-To: collect@phish.net
-Return-Path: <bounce@evil-bank.com>
-Subject: Urgent: Verify your account
-MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+SAMPLE_RAW_EMAIL = (FIXTURES_DIR / "sample_phishing.eml").read_text(encoding="utf-8")
+SAMPLE_HAM_EMAIL = (FIXTURES_DIR / "sample_ham.eml").read_text(encoding="utf-8")
+SAMPLE_HTML_ONLY_EMAIL = (FIXTURES_DIR / "sample_html_only.eml").read_text(encoding="utf-8")
 
-Dear Customer,
 
-Your account has been suspended. Click here immediately to verify:
-http://192.168.1.1/login?redirect=http://evil-bank.com/steal
+@pytest.fixture
+def phishing_eml_path() -> Path:
+    """Return the path to the phishing .eml fixture."""
+    return FIXTURES_DIR / "sample_phishing.eml"
 
-Regards,
-Security Team
-"""
 
-SAMPLE_HAM_EMAIL = """\
-From: alice@company.com
-Reply-To: alice@company.com
-Return-Path: <alice@company.com>
-Subject: Q3 Budget Review
-MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+@pytest.fixture
+def ham_eml_path() -> Path:
+    """Return the path to the legitimate .eml fixture."""
+    return FIXTURES_DIR / "sample_ham.eml"
 
-Hi Bob,
 
-Please find attached the Q3 budget review document.
-
-Best,
-Alice
-"""
+@pytest.fixture
+def html_only_eml_path() -> Path:
+    """Return the path to the HTML-only .eml fixture."""
+    return FIXTURES_DIR / "sample_html_only.eml"
 
 
 @pytest.fixture
@@ -64,3 +56,9 @@ def phishing_email_text() -> str:
 def ham_email_text() -> str:
     """Return a synthetic legitimate email as a string."""
     return SAMPLE_HAM_EMAIL
+
+
+@pytest.fixture
+def html_only_email_text() -> str:
+    """Return an HTML-only email fixture as a string."""
+    return SAMPLE_HTML_ONLY_EMAIL

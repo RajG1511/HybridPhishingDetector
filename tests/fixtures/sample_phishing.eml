@@ -1,0 +1,15 @@
+From: "Security Team" <attacker@evil-bank.com>
+Reply-To: collect@phish.net
+Return-Path: <bounce@evil-bank.com>
+Received: from mail.evil-bank.com (mail.evil-bank.com [203.0.113.10]) by mx.example with ESMTP
+Subject: Urgent: Verify your account
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Dear Customer,
+
+Your account has been suspended. Click here immediately to verify:
+http://192.168.1.1/login?redirect=http://evil-bank.com/steal
+
+Regards,
+Security Team

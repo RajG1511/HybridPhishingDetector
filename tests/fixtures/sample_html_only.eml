@@ -1,0 +1,7 @@
+From: Web Mailer <web@company.com>
+Return-Path: <web@company.com>
+Subject: HTML only sample
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Hello <b>team</b>.</p><p>Please review the portal update.</p></body></html>

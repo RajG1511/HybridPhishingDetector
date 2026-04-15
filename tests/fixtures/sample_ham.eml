@@ -1,0 +1,14 @@
+From: Alice Example <alice@company.com>
+Reply-To: alice@company.com
+Return-Path: <alice@company.com>
+Received: from mail.company.com (mail.company.com [198.51.100.24]) by mx.example with ESMTP
+Subject: Q3 Budget Review
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Hi Bob,
+
+Please find attached the Q3 budget review document.
+
+Best,
+Alice

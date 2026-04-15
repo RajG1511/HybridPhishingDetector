@@ -1,15 +1,12 @@
-"""
-Layer 1 — Email Header Parser
+"""Layer 1 header parsing utilities."""
 
-Parses raw .eml files to extract and compare the From, Reply-To, and
-Return-Path header fields. Flags mismatches as indicators of domain spoofing.
-
-Dependencies: Python standard library `email` module.
-"""
+from __future__ import annotations
 
 import email
 import logging
+from email import policy
 from email.message import Message
+from email.utils import parseaddr
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -26,10 +23,10 @@ def parse_eml(source: str | bytes | Path) -> Message:
     """
     if isinstance(source, Path):
         raw = source.read_bytes()
-        return email.message_from_bytes(raw)
+        return email.message_from_bytes(raw, policy=policy.default)
     if isinstance(source, bytes):
-        return email.message_from_bytes(source)
-    return email.message_from_string(source)
+        return email.message_from_bytes(source, policy=policy.default)
+    return email.message_from_string(source, policy=policy.default)
 
 
 def extract_header_fields(msg: Message) -> dict[str, str | None]:
@@ -48,6 +45,7 @@ def extract_header_fields(msg: Message) -> dict[str, str | None]:
         "return_path": _coerce_header_value(msg.get("Return-Path")),
         "message_id": _coerce_header_value(msg.get("Message-ID")),
         "received_spf": _coerce_header_value(msg.get("Received-SPF")),
+        "authentication_results": _coerce_header_value(msg.get("Authentication-Results")),
         "dkim_signature": _coerce_header_value(msg.get("DKIM-Signature")),
         "arc_seal": _coerce_header_value(msg.get("ARC-Seal")),
     }
@@ -64,18 +62,9 @@ def detect_header_mismatches(fields: dict[str, str | None]) -> list[str]:
     """
     mismatches: list[str] = []
 
-    from_addr = fields.get("from") or ""
-    reply_to = fields.get("reply_to") or ""
-    return_path = fields.get("return_path") or ""
-
-    def _extract_domain(addr: str) -> str:
-        if "@" in addr:
-            return addr.split("@")[-1].strip(">").lower()
-        return ""
-
-    from_domain = _extract_domain(from_addr)
-    reply_domain = _extract_domain(reply_to)
-    return_domain = _extract_domain(return_path)
+    from_domain = extract_address_domain(fields.get("from"))
+    reply_domain = extract_address_domain(fields.get("reply_to"))
+    return_domain = extract_address_domain(fields.get("return_path"))
 
     if reply_domain and from_domain and reply_domain != from_domain:
         mismatches.append(
@@ -96,3 +85,21 @@ def _coerce_header_value(value: object | None) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def extract_address_domain(value: str | None) -> str:
+    """Extract the domain from a mailbox-style header value."""
+    if not value:
+        return ""
+    _, parsed_address = parseaddr(value)
+    if "@" not in parsed_address:
+        return ""
+    return parsed_address.rsplit("@", 1)[-1].strip(">").lower()
+
+
+__all__ = [
+    "detect_header_mismatches",
+    "extract_address_domain",
+    "extract_header_fields",
+    "parse_eml",
+]

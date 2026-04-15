@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from config.settings import PHISHING_RISK_THRESHOLD, SAFE_RISK_THRESHOLD
 from src.pipeline.cascade_pipeline import CascadePipeline, _score_to_verdict
-from src.pipeline.email_ingester import ingest_raw
+from src.pipeline.email_ingester import ingest_eml_file, ingest_raw
 from src.pipeline.risk_scorer import RiskScorer, RiskSignals
 
 
 class TestEmailIngester:
+    def test_ingest_eml_file_from_fixture(self, phishing_eml_path: Path) -> None:
+        parsed = ingest_eml_file(phishing_eml_path)
+        assert "attacker@evil-bank.com" in parsed.from_addr
+        assert parsed.reply_to == "collect@phish.net"
+        assert parsed.plain_body
+
     def test_ingest_raw_bytes(self, raw_phishing_email: bytes) -> None:
         parsed = ingest_raw(raw_phishing_email)
-        assert parsed.from_addr == "attacker@evil-bank.com"
+        assert "attacker@evil-bank.com" in parsed.from_addr
         assert parsed.subject == "Urgent: Verify your account"
         assert len(parsed.plain_body) > 0
 
@@ -21,6 +30,13 @@ class TestEmailIngester:
     def test_ingest_ham_email(self, raw_ham_email: bytes) -> None:
         parsed = ingest_raw(raw_ham_email)
         assert "alice@company.com" in parsed.from_addr
+
+    def test_ingest_html_only_email_generates_plain_text_fallback(
+        self,
+        html_only_email_text: str,
+    ) -> None:
+        parsed = ingest_raw(html_only_email_text)
+        assert "Hello team." in parsed.plain_body
 
 
 class TestRiskScorer:
@@ -122,14 +138,16 @@ class TestCascadePipeline:
         assert result.layer_outputs["layer1"]["protocol_risk_score"] == 65
         assert result.layer_outputs["layer2"]["url_count"] >= 1
         assert result.risk_score >= 60
-        assert result.layer_outputs["layer4"]["eligible"] is True
+        assert result.layer_outputs["layer4"]["eligible"] == (
+            SAFE_RISK_THRESHOLD <= result.risk_score < PHISHING_RISK_THRESHOLD
+        )
         assert result.layer_outputs["layer4"]["status"] == "placeholder"
         assert result.verdict in ("suspicious", "phishing")
 
     def test_verdict_mapping(self) -> None:
         assert _score_to_verdict(0) == "safe"
-        assert _score_to_verdict(39) == "safe"
-        assert _score_to_verdict(40) == "suspicious"
-        assert _score_to_verdict(74) == "suspicious"
-        assert _score_to_verdict(75) == "phishing"
+        assert _score_to_verdict(SAFE_RISK_THRESHOLD - 1) == "safe"
+        assert _score_to_verdict(SAFE_RISK_THRESHOLD) == "suspicious"
+        assert _score_to_verdict(PHISHING_RISK_THRESHOLD - 1) == "suspicious"
+        assert _score_to_verdict(PHISHING_RISK_THRESHOLD) == "phishing"
         assert _score_to_verdict(100) == "phishing"

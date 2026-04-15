@@ -139,14 +139,13 @@ class CascadePipeline:
             return self._invoke_custom_layer(self.layer1, parsed_email)
 
         try:
-            from src.layer1_protocol.metadata_features import extract_metadata_features
+            from src.layer1_protocol import analyze_protocol_authentication
         except Exception as exc:
             logger.info("Layer 1 imports unavailable, using neutral stub: %s", exc)
             return self._neutral_layer1_output()
 
         try:
-            features = extract_metadata_features(parsed_email)
-            return features.to_output_dict()
+            return analyze_protocol_authentication(parsed_email)
         except Exception as exc:
             logger.warning("Layer 1 execution failed, using neutral stub: %s", exc)
             return self._neutral_layer1_output()

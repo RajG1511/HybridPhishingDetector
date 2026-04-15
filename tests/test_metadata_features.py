@@ -34,7 +34,7 @@ Return-Path: <billing@company.com>
 Message-ID: <12345@alerts.bad.net>
 Received-SPF: pass (domain of company.com designates 1.2.3.4 as permitted sender)
 Authentication-Results: mx.example; spf=pass smtp.mailfrom=company.com
-Received: from mail.company.com by mx.example
+Received: from mail.company.com (mail.company.com [1.2.3.4]) by mx.example
 Subject: Monthly invoice
 MIME-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -47,5 +47,6 @@ Invoice attached.
         assert features.spf == "pass"
         assert features.has_authentication_results is True
         assert features.num_received_headers == 1
+        assert features.sender_ip == "1.2.3.4"
         assert features.message_id_domain == "alerts.bad.net"
         assert features.message_id_domain_mismatch is True

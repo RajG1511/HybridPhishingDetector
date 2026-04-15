@@ -70,6 +70,45 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
 Send a POST request to `/analyze` with a `.eml` file or raw email text to receive a risk score (0–100) and XAI explanation.
 
+## Layer 1 Handoff
+
+Layer 1 protocol authentication is ready to hand off as a standalone analyzer through
+`src.layer1_protocol.analyze_protocol_authentication(...)`.
+
+Use the Layer 1 demo runner to inspect the exact contract returned for a sample or `.eml` file:
+
+```bash
+# Built-in phishing sample
+python scripts/run_layer1_demo.py --sample phishing
+
+# Built-in ham sample as JSON
+python scripts/run_layer1_demo.py --sample ham --json
+
+# Your own .eml file
+python scripts/run_layer1_demo.py --file path\to\email.eml --json
+```
+
+Run the Layer 1 validation tests with:
+
+```bash
+python -m pytest tests\test_layer1.py tests\test_metadata_features.py tests\test_pipeline.py -q
+```
+
+The shared Layer 1 output includes:
+
+```python
+{
+    "spf": "pass|fail|softfail|neutral|none|temperror|permerror|unknown",
+    "dkim": "pass|fail|missing|unknown",
+    "arc": "pass|fail|missing|unknown",
+    "header_mismatch": bool,
+    "header_issues": list[str],
+    "metadata_flags": list[str],
+    "protocol_risk_score": int,
+    "metadata_features": dict,
+}
+```
+
 ## Project Structure
 
 See [CLAUDE.md](CLAUDE.md) for the full directory structure and development roadmap.
