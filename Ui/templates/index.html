@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hybrid Phishing Detector</title>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #374151;
+      --accent: #3b82f6;
+      --safe: #16a34a;
+      --warn: #d97706;
+      --danger: #dc2626;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 18px;
+      background: linear-gradient(180deg, #0b1220, #111827);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    h1 { font-size: 2.5rem; }
+    h2 { font-size: 1.6rem; }
+    h4 { font-size: 1.2rem; }
+
+    .subtitle {
+      color: var(--muted);
+      margin-bottom: 28px;
+      font-size: 1.1rem;
+    }
+
+    .panel {
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+
+    .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+
+    textarea, input[type="file"] {
+      width: 100%;
+      background: #0b1220;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 1.05rem;
+    }
+
+    textarea { min-height: 240px; line-height: 1.5; }
+
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .stat-card {
+      background: var(--panel-2);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .stat-value {
+      font-size: 2.2rem;
+      font-weight: bold;
+    }
+
+    .badge {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: bold;
+    }
+
+    .badge.safe { color: #86efac; }
+    .badge.suspicious { color: #fdba74; }
+    .badge.phishing { color: #fca5a5; }
+
+    ul { padding-left: 20px; }
+    li { margin-bottom: 8px; font-size: 1.05rem; }
+
+    .mono { font-family: monospace; }
+    .muted { color: var(--muted); }
+
+    @media (max-width: 900px) {
+      .grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>Hybrid Phishing Detector</h1>
+<div class="subtitle">Analyze emails using a multi-layer phishing detection system.</div>
+
+<div class="panel">
+<form method="POST" enctype="multipart/form-data">
+  <div class="grid">
+    <textarea name="email_text">{{ submitted_text }}</textarea>
+    <div>
+      <input type="file" name="eml_file" />
+      <br><br>
+      <button type="submit">Analyze</button>
+    </div>
+  </div>
+</form>
+</div>
+
+{% if result %}
+
+<!-- SUMMARY -->
+<div class="panel">
+  <h2>Result Summary</h2>
+  <div class="grid-3">
+    <div class="stat-card">
+      <div class="stat-value">
+        <span class="badge {{ result.verdict|lower }}">{{ result.verdict }}</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ result.risk_score }}/100</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ result.confidence }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- NARRATIVE -->
+<div class="panel">
+  <h2>Summary</h2>
+  <p>{{ result.summary }}</p>
+</div>
+
+<!-- LAYERS -->
+<div class="panel">
+  <h2>Technical Breakdown (Layer-by-Layer)</h2>
+
+  <div class="grid-2">
+
+    <!-- Layer 1 -->
+    <div class="stat-card">
+      <h4>Layer 1 – Protocol</h4>
+      <p>SPF: {{ result.layer1_spf }}</p>
+      <p>DKIM: {{ result.layer1_dkim }}</p>
+      <p>ARC: {{ result.layer1_arc }}</p>
+
+      <strong>Header Issues:</strong>
+      <ul>
+        {% for item in result.layer1_header_issues %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Layer 2 -->
+    <div class="stat-card">
+      <h4>Layer 2 – URLs</h4>
+      <p>URL Count: {{ result.layer2_url_count }}</p>
+      <ul>
+        {% for item in result.layer2_flags %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Layer 3 -->
+    <div class="stat-card">
+      <h4>Layer 3 – Semantic</h4>
+      <p>Label: {{ result.layer3_label }}</p>
+      <p>Probability: {{ result.layer3_proba }}</p>
+    </div>
+
+    <!-- Layer 4 -->
+    <div class="stat-card">
+      <h4>Layer 4 – Context</h4>
+      <p>Used: {{ result.layer4_used }}</p>
+      <p>{{ result.layer4_note }}</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- EXPLAINABILITY -->
+<div class="panel">
+  <h2>Explainability</h2>
+
+  <div class="grid-2">
+    <div class="stat-card">
+      <h4>SHAP</h4>
+      <ul>
+        {% for feat in result.shap_features %}
+          <li>{{ feat.feature }} — {{ feat.weight }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="stat-card">
+      <h4>LIME</h4>
+      <ul>
+        {% for word in result.lime_words %}
+          <li>{{ word.feature }} — {{ word.weight }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+
+</div>
+</body>
+</html>

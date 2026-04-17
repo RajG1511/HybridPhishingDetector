@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,8 @@ class DetectionResult:
     confidence: float
     layer_outputs: dict[str, dict[str, Any]]
     explanation: str
+    shap_features: list[dict[str, Any]] = field(default_factory=list)
+    lime_words: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def verdict(self) -> str:
@@ -82,6 +84,40 @@ class CascadePipeline:
         layer2_output = self._run_layer2(parsed_email)
         layer3_output = self._run_layer3(parsed_email)
 
+        body = parsed_email.plain_body or parsed_email.html_body or ""
+
+        # --- XAI outputs for UI ---
+        lime_result: dict[str, Any] | None = None
+        shap_result: dict[str, Any] | None = None
+        lime_words: list[dict[str, Any]] = []
+        shap_features: list[dict[str, Any]] = []
+
+        if body and self.lime_explainer is not None:
+            try:
+                lime_result = self.lime_explainer.explain_prediction(body)
+                lime_words = [
+                    {"feature": str(word), "weight": float(weight)}
+                    for word, weight in lime_result.get("top_features", [])
+                ]
+            except Exception as exc:
+                logger.warning("LIME explanation failed: %s", exc)
+
+        if body and self.shap_explainer is not None and self.vectorizer is not None:
+            try:
+                from src.layer3_semantic.preprocessor import preprocess_email
+
+                cleaned_text = preprocess_email(body)
+                x_single = self.vectorizer.transform([cleaned_text]).toarray()[0]
+                shap_result = self.shap_explainer.explain_local(x_single)
+
+                pred_label = str(layer3_output.get("predicted_label", "legitimate"))
+                shap_features = [
+                    {"feature": str(word), "weight": float(weight)}
+                    for word, weight in shap_result.get("per_class", {}).get(pred_label, [])
+                ]
+            except Exception as exc:
+                logger.warning("SHAP explanation failed: %s", exc)
+
         risk_signals = RiskSignals(
             header_mismatch_count=max(
                 len(layer1_output.get("header_issues", [])),
@@ -117,7 +153,22 @@ class CascadePipeline:
                 "layer_scores": risk_result.layer_scores,
             },
         }
-        explanation = self._build_explanation(layer_outputs)
+
+        if callable(self.narrative_generator) and lime_result is not None:
+            try:
+                explanation = str(
+                    self.narrative_generator(
+                        lime_result=lime_result,
+                        shap_result=shap_result,
+                        header_flags=layer1_output.get("header_issues", []),
+                        url_flags=layer2_output.get("url_flags", []),
+                    )
+                )
+            except Exception as exc:
+                logger.warning("Narrative generator failed, using fallback explanation: %s", exc)
+                explanation = self._build_explanation(layer_outputs)
+        else:
+            explanation = self._build_explanation(layer_outputs)
 
         logger.info(
             "Pipeline complete: predicted_label=%s risk_score=%d verdict=%s",
@@ -131,6 +182,8 @@ class CascadePipeline:
             confidence=float(layer3_output.get("confidence", 0.0)),
             layer_outputs=layer_outputs,
             explanation=explanation,
+            shap_features=shap_features,
+            lime_words=lime_words,
         )
 
     def _run_layer1(self, parsed_email: ParsedEmail) -> dict[str, Any]:
