@@ -289,9 +289,9 @@ def _score_metadata_and_url(
 
 
 def _metadata_url_label_for_score(
-    score: int,
+    score: float,
     *,
-    threshold: int,
+    threshold: float,
     scorer: RiskScorer,
 ) -> str:
     """Return a metadata+URL verdict using the active scoring regime."""

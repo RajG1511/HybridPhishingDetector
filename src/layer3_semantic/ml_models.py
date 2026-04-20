@@ -117,7 +117,8 @@ def build_xgboost(n_estimators: int = 200, random_state: int = 42):
         colsample_bytree=0.8,
         eval_metric="mlogloss",
         random_state=random_state,
-        n_jobs=-1,
+        tree_method="hist",  # MUCH faster for 10k+ features
+        n_jobs=2,            # Matches Colab free tier exactly
         verbosity=0,
     )
     return LabelEncodingXGBWrapper(xgb)

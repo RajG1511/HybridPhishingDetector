@@ -13,9 +13,15 @@ class FeatureAttribution(BaseModel):
 
 
 class AnalyzeResponse(BaseModel):
-    risk_score: int = Field(..., ge=0, le=100)
+    risk_score: float = Field(..., ge=0, le=100)
     verdict: str = Field(..., description='One of "safe", "suspicious", or "phishing".')
     narrative: str
+    analysis_source: str = "text"  # "text" or "upload"
+    filename: str | None = None
+    metadata_url_score: float = 0.0
+    semantic_score: float = 0.0
+    threshold_safe: int = 30
+    threshold_phishing: int = 47
 
     # Layer 1
     layer1_spf: str = "unknown"

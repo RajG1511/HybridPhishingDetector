@@ -1,0 +1,192 @@
+Return-Path: <MAILER-DAEMON>
+Delivered-To: nikislavchev1@abv.bg
+Received-SPF: neutral (spfCheck: 172.232.175.16 is neither permitted nor denied by domain of keton.info) client-ip=172.232.175.16; envelope-from=postmaster@keton.info; helo=keton.info;
+Received: from keton.info (mail56.galipan.org [172.232.175.16])
+	by pmx.abv.bg (Postfix) with ESMTP id C2D74601F669
+	for <nikislavchev1@abv.bg>; Thu, 19 Mar 2026 23:55:13 +0200 (EET)
+DKIM-Signature: v=1; a=rsa-sha1; c=relaxed/relaxed; s=smtp; d=abv.bg;
+ h=Mime-Version:Date:Message-ID:Content-Type:Subject:From:Reply-To:To:List-Unsubscribe; i=nikislavchev1@abv.bg;
+ bh=+4VAf34y06tvK0aB6AbMa3IAAIc=;
+ b=AOfACTsE/a+b4VEOMxYch9HviicRMEOwxe+OHvTcpcUttuS+O0i9TAOfY07M6p47NW8b/8ZX5gif
+   VgEZ85fIqV1qQOngumb5RsifNCusp4QvzEQ+q24hswA8N6h9r7+i4qIfWQqs7curAbzEltacynef
+   SFFHQ7QbADbg1PTcLLI=
+DomainKey-Signature: a=rsa-sha1; c=nofws; q=dns; s=smtp; d=abv.bg;
+ b=huw5vVC1sP81F+8NUFlpktdv5qwVpkNz7l0nI7yFyAqmDJfelA2DYdmrFzybYwMCuIXrsYNKcNPI
+   lW4/Gcps24znKEvf+Kd4Tm1umOK6rfRfi/Lzm6vYPxGm8ZtWKHjTiEcJfvNJU8KnB0/ilLQ5USKb
+   QoT/Gr++kjoYAUk7Rvk=;
+Mime-Version: 1.0
+Date: Thu, 19 Mar 2026 21:52:58 +0000
+Message-ID: <ORGGjAo8xPhwAW-7212-qXtfjg-6717545-29723050@zakupki.gospmr.org>
+Content-Type: text/html; charset=UTF-8
+Subject: Deadline: Your files will be deleted after 48 hours
+From: "=?UTF-8?B?Q2xvdWQgU2VjdXJlIC0gQ3VzdG9tZXIgU2VydmljZSBEZXBhcnRtZW50?=" <nikislavchev1@abv.bg>
+Reply-To: "=?UTF-8?B?Q2xvdWQgU2VjdXJlIC0gQ3VzdG9tZXIgU2VydmljZSBEZXBhcnRtZW50?=" <>
+To: "nikislavchev1@abv.bg" <nikislavchev1@abv.bg>
+List-Unsubscribe: <mailto:7FIqQGnmMOly@zakupki.gospmr.org>,
+    <https://zakupki.gospmr.org/Tj61i4c3BqYZ>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+X-Message-Type: newsletter
+X-CSA-Complaints: csa-complaints@eco.de
+
+ <!--
+
+
+</L3JD.90plecwhvmfqznyai0rdmm2paf7oroizh8>
+
+
+</N1WYYS2UML539GT29NTQC64PKH9Z0JDBPY80DX6CD7KBR.n6f6xbgf4abiaad97p7tbgq970mwmccdnlmkzcz5n4py8299205ay40pq8mb9vzr0oicd2dcje7ssx3rrko0xq4k3>
+
+
+</7gybdab8e0rtqjjbhdxt51upb88pbaa1l1liye3jcd1q3a88egr0rd48v68yyfpddgn5a5hy9bj71rgzkykyvacw49.E4PSW8ZBHXY6NUO7J3YJEBUZAMJ4MD0ESVU7N1NL61YT>
+-->
+<img src="http://zm7req.nedeneden.org/track/3GIBzW21954voyW1473kvblavsfnj12205VSKIINORNKNQKWJ979646/19430i9"width="0.5px">
+
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Deadline: Your files will be deleted after 48 hours</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body,table,td,a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+      table,td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+      img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+      body { margin:0; padding:0; width:100% !important; height:100% !important; background:#f2f5f8; font-family:'Segoe UI',Arial,Helvetica,sans-serif; }
+
+      .wrapper { width:100%; padding:35px 0; }
+      .container { max-width:520px; width:100%; margin:0 auto; background:#ffffff; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,.08); }
+
+      .logo { display:block; margin:0 auto; padding:28px 0 15px; max-width:115px; height:auto; }
+
+      .headline { font-size:20px; font-weight:700; color:#a31b1b; margin:0 0 12px; text-align:center; letter-spacing:-0.3px; }
+      .alert { background:#fef3e2; border:1px solid #fcd9b6; border-left:4px solid #d97706; padding:16px; border-radius:6px; font-size:15px; color:#1f2937; line-height:22px; margin-bottom:20px; }
+
+      .copy { font-size:15px; color:#1f2937; line-height:24px; margin:0 0 12px; }
+
+      .details { font-size:15px; color:#1f2937; line-height:24px; margin-bottom:20px; background:#fafbfc; padding:14px; border-radius:6px; border:1px solid #e9edf2; }
+      .details strong { font-weight:650; }
+
+      .btn { background:#dc2626; color:#ffffff !important; text-decoration:none; display:inline-block; padding:15px 28px; border-radius:50px; font-size:15px; font-weight:700; box-shadow:0 4px 8px rgba(220,38,38,.2); }
+      .center { text-align:center; }
+
+      .footer { font-size:13px; color:#6b7280; line-height:19px; text-align:center; padding:20px; border-top:1px solid #eef2f6; margin-top:10px; }
+      .footer a { color:#6b7280; text-decoration:underline; }
+
+      .note { font-size:13px; color:#6b7280; background:#f9fafc; padding:12px; border-radius:6px; margin-top:15px; }
+    </style>
+  </head>
+  <body>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="wrapper" width="100%">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="container">
+            <tr>
+              <td align="center"><a href="http://5fs2zb.nedeneden.org/4sBtao21954bhlC1473zrjcdovxna12205JIQRYXBXTUALSAG979646/19430L9" target="_blank" style="text-decoration:none;">
+                <img src="https://686.efuserassets.com/686/offers/16448/thumb/logo.png" alt="CloudSecure" class="logo" width="115" height="32">
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 28px 12px;">
+                <p class="headline">⚠️ ACTION REQUIRED: Your payment was unsuccessful</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 28px;">
+                <div class="alert">
+                  <span style="font-size:18px;">📌</span> <strong>Your subscription expires today</strong><br>
+                  The attempt to automatically renew your CloudSecure plan failed. If you do not update your details within the next <strong>48 hours</strong>, temporary files and backups will be deleted.
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 28px;">
+                <div class="details">
+                  <p style="margin:0 0 8px;"><strong>📋 Account information:</strong></p>
+                  <table width="100%" cellpadding="4" style="font-size:15px;">
+                    <tr><td width="130"><strong>Reference No.:</strong></td><td><span id="ref_number"></span></td></tr>
+                    <tr><td><strong>Plan:</strong></td><td>CloudSecure Premium + 2TB</td></tr>
+                    <tr><td><strong>Deadline:</strong></td><td><span id="due_date"></span></td></tr>
+                    <tr><td><strong>Status:</strong></td><td><span style="color:#b91c1c;">✗ payment not completed</span></td></tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 28px;">
+                <p class="copy">
+                  🔒 CloudSecure provides encrypted storage for your photos, documents, and backups. Without an active subscription, you lose access to your files and they <strong>will not be recoverable after the deadline expires</strong>.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="center" style="padding:22px 28px 25px;">
+                <a href="http://n7thf5.nedeneden.org/4SReyY21954ZIQp1473meixnkijsf12205DSFQBILNDVMBKAA979646/19430u9" target="_blank" style="text-decoration:none;" target="_blank" style="text-decoration:none;" class="btn">Update payment method</a>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 28px 20px;">
+                <p class="copy center" style="font-size:14px;">Thank you for choosing CloudSecure!<br><br>Sincerely,<br>Customer Service Department</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div class="note center">
+                  💡 If you have already updated the payment, please ignore this email. Processing may take up to 24 hours.
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Footer with unsubscribe -->
+          <div class="footer">
+            You are receiving this email as a registered CloudSecure user. <br>
+            <a href="http://lcpwjh.nedeneden.org/4GYdeH21954dzfd1473ksokasuuin12205DFXVMYDMSTSHZRA979646/19430q9" target="_blank" style="text-decoration:none;">Unsubscribe from notifications</a> · <a href="http://lmrb69.nedeneden.org/4bHoao21954iCXg1473hkdkpanixx12205MITEUSMVBWYNRCO979646/19430z9" target="_blank" style="text-decoration:none;">Help</a>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Dynamic content generation -->
+    <script>
+      // Generate unique reference with varied format
+      const refPrefixes = ["REF", "INV", "SUB", "TXN", "BIL"];
+      const randomPrefix = refPrefixes[Math.floor(Math.random() * refPrefixes.length)];
+      const refNumber = randomPrefix + "-" + Math.floor(100000 + Math.random() * 900000) + "-" + Math.floor(1000 + Math.random() * 9000);
+
+      // Format due date (today + 2 days)
+      const today = new Date();
+      const dueDate = new Date(today);
+      dueDate.setDate(today.getDate() + 2);
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      const formattedDueDate = dueDate.toLocaleDateString('en-US', options);
+
+      // Insert values
+      document.getElementById("ref_number").textContent = refNumber;
+      document.getElementById("due_date").textContent = formattedDueDate;
+    </script>
+
+    <!-- Multiple tracking pixels for better redundancy -->
+  </body>
+</html>
+
+
+    
+<!--
+
+    
+</thmqpjej832b1g3fjbgzm4ljt3gt45ca408c1ufqbaazsb3zmkuql9ohwkm5gwy8pif9fskgquhvaq.3PUWCTNS206>
+
+    
+</js3ovj244q8pd748i0zk2wq.ZZ9LU1SJ68YJO5MSXQY39QW3M4LM7ZTXZ74V29A2HE8ZASFG9U8LP6IFS02CCSBJAP5J1YCA9DUXD>
+
+    
+</RF94IFG6VW10A99YAOT4TS9ZRU8JXXI2HDCRTLENBMLH2WPZBBVN55Q8C4L0647193.5sw1ecgzwx84bptozqyvp0ig810d8goo5t0baxeph7j5yffbr0yfl950p14ald82un0a6br85rzobdqfiqdxa6tz>
+    -->

@@ -202,10 +202,12 @@ def get_distilbert_embeddings(
         ).to(device)
 
         with torch.no_grad():
-            output = model(**encoded)
+            # Enable Half-Precision (FP16) for A100 Tensor Cores
+            with torch.cuda.amp.autocast(enabled=device.type == 'cuda'):
+                output = model(**encoded)
 
         # [CLS] token is the first token in every sequence
-        cls_embeddings = output.last_hidden_state[:, 0, :].cpu().numpy()
+        cls_embeddings = output.last_hidden_state[:, 0, :].detach().cpu().numpy()
         all_embeddings.append(cls_embeddings)
 
     result = np.vstack(all_embeddings)

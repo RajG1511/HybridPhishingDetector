@@ -16,8 +16,10 @@ from config.settings import (
     LAYER2_MAX_RISK_POINTS,
     LAYER3_MAX_RISK_POINTS,
     NEW_DOMAIN_THRESHOLD_DAYS,
-    PHISHING_RISK_THRESHOLD,
-    SAFE_RISK_THRESHOLD,
+    ENSEMBLE_SAFE_THRESHOLD,
+    ENSEMBLE_PHISHING_THRESHOLD,
+    METADATA_URL_SAFE_THRESHOLD,
+    METADATA_URL_PHISHING_THRESHOLD,
 )
 from src.pipeline.metadata_url_model import MetadataURLModel, maybe_load_metadata_url_model
 
@@ -50,9 +52,11 @@ class RiskSignals:
 class RiskScoreResult:
     """Structured output from the risk scorer."""
 
-    score: int
+    score: float
     label: str
     layer_scores: dict[str, int]
+    metadata_url_score: float
+    semantic_score: float
     metadata_url_probability: float | None = None
     metadata_url_model_name: str | None = None
 
@@ -66,8 +70,10 @@ class RiskScorer:
         protocol_points: int = LAYER1_MAX_RISK_POINTS,
         url_points: int = LAYER2_MAX_RISK_POINTS,
         semantic_points: int = LAYER3_MAX_RISK_POINTS,
-        safe_threshold: int = SAFE_RISK_THRESHOLD,
-        phishing_threshold: int = PHISHING_RISK_THRESHOLD,
+        safe_threshold: float = ENSEMBLE_SAFE_THRESHOLD,
+        phishing_threshold: float = ENSEMBLE_PHISHING_THRESHOLD,
+        metadata_safe_threshold: float = METADATA_URL_SAFE_THRESHOLD,
+        metadata_phishing_threshold: float = METADATA_URL_PHISHING_THRESHOLD,
         metadata_url_model: MetadataURLModel | None = None,
         metadata_url_model_path: Path | str | None = None,
     ) -> None:
@@ -76,6 +82,8 @@ class RiskScorer:
         self.semantic_points = semantic_points
         self.safe_threshold = safe_threshold
         self.phishing_threshold = phishing_threshold
+        self.metadata_safe_threshold = metadata_safe_threshold
+        self.metadata_phishing_threshold = metadata_phishing_threshold
         self.metadata_url_model = metadata_url_model
         if self.metadata_url_model is None and metadata_url_model_path is not None:
             self.metadata_url_model = maybe_load_metadata_url_model(metadata_url_model_path)
@@ -85,7 +93,7 @@ class RiskScorer:
         return self.score(signals).score
 
     def score(self, signals: RiskSignals) -> RiskScoreResult:
-        """Compute the final risk score and label.
+        """Compute the final risk score and label using weighted ensemble logic.
 
         Args:
             signals: Aggregated Layer 1-3 signals.
@@ -99,44 +107,61 @@ class RiskScorer:
             metadata_url_probability,
             metadata_url_model_name,
         ) = self._score_metadata_url(signals)
+        
+        semantic_score = self._score_semantic(signals)
+        
         layer_scores = {
             "layer1_protocol": protocol_score,
             "layer2_url": url_score,
-            "layer3_semantic": self._score_semantic(signals),
+            "layer3_semantic": semantic_score,
         }
         
-        # Dynamic Normalization: Calculate total possible points based on active layers
-        active_max_points = self.protocol_points + self.url_points
+        # --- Weighted Ensemble Formula (Strictly ML + 100-point Scales) ---
+        # We now strictly use the XGBoost model's probability for the Metadata score.
+        raw_meta_url_score = round(metadata_url_probability * 100, 2) if metadata_url_probability is not None else round(protocol_score + url_score, 2)
+        norm_semantic_score = round(self._phishing_probability(signals) * 100, 2)
+
+        # 30% Metadata/URL Risk + 70% Semantic Risk.
         if signals.semantic_available:
-            active_max_points += self.semantic_points
-            
-        raw_score_sum = sum(layer_scores.values())
+            final_score = round((raw_meta_url_score * 0.3) + (norm_semantic_score * 0.7), 2)
+        else:
+            final_score = raw_meta_url_score
         
-        # Normalize to 0-100 scale regardless of how many layers are active
-        final_score = round((raw_score_sum / active_max_points) * 100) if active_max_points > 0 else 0
-        final_score = max(0, min(100, final_score))
-        
+        # Ensure final score is capped
+        final_score = max(0.0, min(100.0, final_score))
         label = self.label_for_score(final_score)
 
-        logger.debug(
-            "Risk score=%d label=%s breakdown=%s",
+        logger.info(
+            "Risk Score Result: score=%d, label=%s, meta=%d, semantic=%d",
             final_score,
             label,
-            layer_scores,
+            raw_meta_url_score,
+            norm_semantic_score
         )
+        
         return RiskScoreResult(
             score=final_score,
             label=label,
             layer_scores=layer_scores,
+            metadata_url_score=raw_meta_url_score,
+            semantic_score=norm_semantic_score,
             metadata_url_probability=metadata_url_probability,
             metadata_url_model_name=metadata_url_model_name,
         )
 
-    def label_for_score(self, score: int) -> str:
-        """Map an integer risk score to a user-facing verdict label."""
+    def label_for_score(self, score: float) -> str:
+        """Map an ensemble risk score to a user-facing verdict label."""
         if score >= self.phishing_threshold:
             return "phishing"
         if score >= self.safe_threshold:
+            return "suspicious"
+        return "safe"
+
+    def label_for_metadata_score(self, score: float) -> str:
+        """Map a metadata risk score to its component label."""
+        if score >= self.metadata_phishing_threshold:
+            return "phishing"
+        if score >= self.metadata_safe_threshold:
             return "suspicious"
         return "safe"
 
@@ -159,34 +184,8 @@ class RiskScorer:
             logger.warning("Metadata + URL model failed, falling back to rules: %s", exc)
             return rule_protocol_score, rule_url_score, None, None
 
-        # Calculate pure ML points
-        ml_points = round(probability * (self.protocol_points + self.url_points))
-        
-        # Hybrid Filter: Ensure the ML model can elevate the score, 
-        # but cannot entirely wipe out hard protocol/URL rule violations.
-        combined_points = min(
-            self.protocol_points + self.url_points,
-            max(total_rule_points, ml_points),
-        )
-
-        # Distribute points back proportionally based on rules, or evenly if no rules fired
-        if total_rule_points > 0:
-            protocol_score = round(combined_points * (rule_protocol_score / total_rule_points))
-            # Cap protocol and shift excess to URL (up to its cap)
-            protocol_score = min(protocol_score, self.protocol_points)
-            url_score = min(combined_points - protocol_score, self.url_points)
-        elif signals.url_count > 0:
-            # If no rules fired but URLs exist, prioritize URL risk
-            url_score = min(combined_points, self.url_points)
-            protocol_score = min(combined_points - url_score, self.protocol_points)
-        else:
-            # Default fallback distribution relative to max possibilities
-            protocol_score = round(combined_points * (self.protocol_points / (self.protocol_points + self.url_points)))
-            # Final safety check on fallback distribution
-            protocol_score = min(protocol_score, self.protocol_points)
-            url_score = min(combined_points - protocol_score, self.url_points)
-
-        return protocol_score, url_score, probability, self.metadata_url_model.model_name
+        # Strictly use Model Probability (as requested by user)
+        return rule_protocol_score, rule_url_score, probability, self.metadata_url_model.model_name
 
     def _score_protocol_rule(self, signals: RiskSignals) -> int:
         """Score Layer 1 protocol evidence."""

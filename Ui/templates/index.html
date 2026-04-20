@@ -3,237 +3,529 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hybrid Phishing Detector</title>
-
+  <title>Hybrid Phishing Detector | Premium Analysis</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  
   <style>
     :root {
-      --bg: #0f172a;
-      --panel: #111827;
-      --panel-2: #1f2937;
-      --text: #e5e7eb;
+      --bg: #030712;
+      --panel: rgba(17, 24, 39, 0.7);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --text: #f9fafb;
       --muted: #9ca3af;
-      --border: #374151;
-      --accent: #3b82f6;
-      --safe: #16a34a;
-      --warn: #d97706;
-      --danger: #dc2626;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --safe: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --glass: blur(12px);
     }
 
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; transition: all 0.2s ease-out; }
 
     body {
       margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 18px;
-      background: linear-gradient(180deg, #0b1220, #111827);
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top right, #1e1b4b, #030712);
       color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    h1, h2, h3, h4 { 
+      font-family: 'Outfit', sans-serif; 
+      margin: 0;
     }
 
     .container {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 32px 20px 48px;
+      padding: 60px 24px;
     }
 
-    h1 { font-size: 2.5rem; }
-    h2 { font-size: 1.6rem; }
-    h4 { font-size: 1.2rem; }
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
 
-    .subtitle {
+    header h1 {
+      font-size: 3rem;
+      background: linear-gradient(to right, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
       color: var(--muted);
-      margin-bottom: 28px;
       font-size: 1.1rem;
+      margin-top: 12px;
     }
 
-    .panel {
-      background: rgba(17, 24, 39, 0.95);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 22px;
-      margin-bottom: 20px;
+    .glass-panel {
+      background: var(--panel);
+      backdrop-filter: var(--glass);
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      margin-bottom: 32px;
     }
 
-    .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
-    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .input-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 32px;
+    }
 
-    textarea, input[type="file"] {
+    textarea {
       width: 100%;
-      background: #0b1220;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px;
-      font-size: 1.05rem;
+      height: 300px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 20px;
+      color: #fff;
+      font-family: 'Inter', monospace;
+      font-size: 0.95rem;
+      resize: vertical;
+      outline: none;
     }
 
-    textarea { min-height: 240px; line-height: 1.5; }
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    .upload-zone {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 2px dashed var(--panel-border);
+      border-radius: 16px;
+      padding: 20px;
+      height: 100%;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .upload-zone:hover {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.05);
+    }
 
     button {
+      display: block;
+      width: auto;
+      min-width: 260px;
+      margin: 32px auto 0;
       background: var(--accent);
       color: white;
       border: none;
-      border-radius: 10px;
-      padding: 12px 18px;
+      border-radius: 12px;
+      padding: 16px 48px;
       font-size: 1.1rem;
-      font-weight: bold;
+      font-weight: 600;
       cursor: pointer;
+      box-shadow: 0 4px 14px 0 var(--accent-glow);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px 0 var(--accent-glow);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-badge.safe { background: rgba(16, 185, 129, 0.1); color: var(--safe); border: 1px solid rgba(16, 185, 129, 0.2); }
+    .status-badge.suspicious { background: rgba(245, 158, 11, 0.1); color: var(--warn); border: 1px solid rgba(245, 158, 11, 0.2); }
+    .status-badge.phishing { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 24px;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 32px;
     }
 
     .stat-card {
-      background: var(--panel-2);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 20px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .stat-label { color: var(--muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+    .stat-value { font-size: 2.5rem; font-weight: 700; font-family: 'Outfit', sans-serif; }
+
+    .narrative-box {
+      font-size: 1.15rem;
+      line-height: 1.7;
+      color: #d1d5db;
+    }
+
+    .xai-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .feature-row {
+      margin-bottom: 12px;
+    }
+
+    .feature-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+
+    .bar-container {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .bar {
+      height: 100%;
+    }
+
+    .bar.positive { background: var(--danger); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    .bar.negative { background: var(--safe); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+
+    .layer-pill {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.03);
       border-radius: 12px;
-      padding: 18px;
+      margin-bottom: 12px;
     }
 
-    .stat-value {
-      font-size: 2.2rem;
-      font-weight: bold;
+    .layer-icon {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
     }
 
-    .badge {
-      padding: 8px 14px;
-      border-radius: 999px;
-      font-weight: bold;
+    .pass { background: var(--safe); }
+    .fail { background: var(--danger); }
+    .missing { background: var(--muted); }
+    .neutral { background: var(--warn); }
+
+    .target-info {
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+      padding: 8px 16px;
+      background: rgba(99, 102, 241, 0.1);
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+      display: inline-block;
     }
 
-    .badge.safe { color: #86efac; }
-    .badge.suspicious { color: #fdba74; }
-    .badge.phishing { color: #fca5a5; }
-
-    ul { padding-left: 20px; }
-    li { margin-bottom: 8px; font-size: 1.05rem; }
-
-    .mono { font-family: monospace; }
-    .muted { color: var(--muted); }
-
-    @media (max-width: 900px) {
-      .grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(3, 7, 18, 0.8);
+      backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
     }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(99, 102, 241, 0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 0.05em;
+      color: #fff;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    @media (max-width: 900px) { ... }
   </style>
 </head>
-
 <body>
-<div class="container">
 
-<h1>Hybrid Phishing Detector</h1>
-<div class="subtitle">Analyze emails using a multi-layer phishing detection system.</div>
-
-<div class="panel">
-<form method="POST" enctype="multipart/form-data">
-  <div class="grid">
-    <textarea name="email_text">{{ submitted_text }}</textarea>
-    <div>
-      <input type="file" name="eml_file" />
-      <br><br>
-      <button type="submit">Analyze</button>
-    </div>
-  </div>
-</form>
+<div class="loader-overlay" id="loader">
+  <div class="spinner"></div>
+  <div class="loading-text">Analyzing Security Layers...</div>
 </div>
 
-{% if result %}
+<div class="container">
+  <header>
+    <h1>Hybrid Phishing Detector</h1>
+    <p>Multi-layered AI analysis of email authentication, links, and semantics.</p>
+  </header>
 
-<!-- SUMMARY -->
-<div class="panel">
-  <h2>Result Summary</h2>
-  <div class="grid-3">
-    <div class="stat-card">
-      <div class="stat-value">
-        <span class="badge {{ result.verdict|lower }}">{{ result.verdict }}</span>
+  <section class="glass-panel">
+    <form method="POST" enctype="multipart/form-data">
+      <div class="input-grid">
+        <div class="text-input">
+          <textarea name="email_text" placeholder="Paste raw email content or message body here...">{{ submitted_text }}</textarea>
+        </div>
+        <div class="file-side">
+          <label class="upload-zone" id="drop-zone" style="height: 300px;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="muted"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p style="margin-top: 10px; color: var(--muted);">{{ result.filename if result and result.filename else 'Upload .eml file' }}</p>
+            <input type="file" name="eml_file" style="display: none;" onchange="this.form.submit()">
+          </label>
+        </div>
+      </div>
+      <button type="submit">Analyze Content</button>
+    </form>
+  </section>
+
+  {% if result %}
+  
+  <div class="target-info">
+    {% if result.analysis_source == 'upload' %}
+      🔍 Analyzing File: <strong>{{ result.filename }}</strong>
+    {% else %}
+      📝 Analyzing Manual Text Entry
+    {% endif %}
+  </div>
+
+  <section class="glass-panel">
+    <div class="result-header">
+      <h2>Analysis Results</h2>
+      <div class="status-badge {{ result.verdict|lower }}">
+        {{ result.verdict }}
       </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-value">{{ result.risk_score }}/100</div>
+
+    <div class="result-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 32px;">
+      <div class="stat-card">
+        <div class="stat-label">Ensemble Score</div>
+        <div class="stat-value" style="color: {% if result.risk_score >= result.threshold_phishing %}var(--danger){% elif result.risk_score >= result.threshold_safe %}var(--warn){% else %}var(--safe){% endif %};">
+          {{ "%.2f"|format(result.risk_score) }}%
+        </div>
+      </div>
+      
+      <div>
+        <div class="stat-card" style="margin-bottom: 12px;">
+          <div class="stat-label">Metadata/URL</div>
+          <div class="stat-value" style="color: {% if result.metadata_url_score >= 85.45 %}var(--danger){% elif result.metadata_url_score >= 54.54 %}var(--warn){% else %}var(--safe){% endif %};">
+            {{ "%.2f"|format(result.metadata_url_score) }}%
+          </div>
+        </div>
+        <div class="threshold-legend" style="margin-top: 16px; font-size: 0.82rem; opacity: 0.8; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+          <div style="font-weight: 700; margin-bottom: 8px; font-size: 0.75rem; letter-spacing: 0.8px; color: var(--muted);">XGBOOST THRESHOLDS</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; white-space: nowrap; gap: 8px;">
+            <span><span style="color: var(--safe); margin-right: 4px;">●</span>< 54.5%</span>
+            <span><span style="color: var(--warn); margin-right: 4px;">●</span>54.5-85.4%</span>
+            <span><span style="color: var(--danger); margin-right: 4px;">●</span>> 85.4%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Semantic</div>
+        <div class="stat-value" style="color: {% if result.layer3_proba >= 0.60 %}var(--danger){% elif result.layer3_proba >= 0.40 %}var(--warn){% else %}var(--safe){% endif %};">
+          {{ "%.2f"|format(result.semantic_score) }}%
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">URLs Found</div>
+        <div class="stat-value">{{ result.layer2_url_count }}</div>
+      </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-value">{{ result.confidence }}</div>
+
+    <!-- Ensemble Calculation Explorer -->
+    <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--panel-border); border-radius: 16px; padding: 16px; margin-bottom: 32px; text-align: center;">
+      <div class="stat-label" style="margin-bottom: 12px; font-size: 0.75rem;">Weighted Ensemble Calculation</div>
+      <div style="font-family: 'Outfit', sans-serif; font-size: 1.1rem; color: #d1d5db; display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px;">
+         <span style="opacity: 0.7;">(</span>
+         <strong style="color: var(--accent);">0.3</strong> <span style="opacity: 0.5;">×</span> <strong>{{ "%.2f"|format(result.metadata_url_score) }}</strong> 
+         <span style="opacity: 0.7;">) + (</span>
+         <strong style="color: var(--accent);">0.7</strong> <span style="opacity: 0.5;">×</span> <strong>{{ "%.2f"|format(result.semantic_score) }}</strong>
+         <span style="opacity: 0.7;">) =</span>
+         <strong style="color: #fff; font-size: 1.3rem; border-bottom: 2px solid var(--accent);">{{ "%.2f"|format(result.risk_score) }}%</strong>
+      </div>
+      
+      <!-- Final Decision Legend -->
+      <div style="padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: center; gap: 24px; font-size: 0.75rem; opacity: 0.8; letter-spacing: 0.5px;">
+        <span style="font-weight: 700; color: var(--muted); text-transform: uppercase; margin-right: 8px;">Final Decision Logic:</span>
+        <span><span style="color: var(--safe);">●</span> SAFE < 40.0%</span>
+        <span><span style="color: var(--warn);">●</span> SUSPICIOUS 40.0-60.0%</span>
+        <span><span style="color: var(--danger);">●</span> PHISHING > 60.0%</span>
+      </div>
     </div>
+
+    <div class="narrative-box">
+      {{ result.summary }}
+    </div>
+  </section>
+
+  <div class="xai-section">
+    <!-- SHAP -->
+    <section class="glass-panel">
+      <h3>Structural Features (SHAP)</h3>
+      <p class="muted" style="font-size: 0.85rem; margin-bottom: 20px;">Random Forest feature importance for the current prediction.</p>
+      
+      {% for feat in result.shap_features %}
+      <div class="feature-row">
+        <div class="feature-info">
+          <span>{{ feat.feature }}</span>
+          <span class="muted">{{ feat.weight|round(4) }}</span>
+        </div>
+        <div class="bar-container">
+          <div class="bar {% if feat.weight > 0 %}positive{% else %}negative{% endif %}" 
+               style="width: {{ [ (feat.weight|abs * 100 * 5), 100 ] | min }}%; margin-left: {% if feat.weight < 0 %}auto{% else %}0{% endif %};"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </section>
+
+    <!-- LIME -->
+    <section class="glass-panel">
+      <h3>Key Words (LIME)</h3>
+      <p class="muted" style="font-size: 0.85rem; margin-bottom: 20px;">Linguistic tokens that swayed the semantic model.</p>
+      
+      {% for word in result.lime_words %}
+      <div class="feature-row">
+        <div class="feature-info">
+          <span>"{{ word.feature }}"</span>
+          <span class="muted">{{ word.weight|round(4) }}</span>
+        </div>
+        <div class="bar-container">
+          <div class="bar {% if word.weight > 0 %}positive{% else %}negative{% endif %}" 
+               style="width: {{ [ (word.weight|abs * 100 * 2), 100 ] | min }}%; margin-left: {% if word.weight < 0 %}auto{% else %}0{% endif %};"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </section>
   </div>
-</div>
 
-<!-- NARRATIVE -->
-<div class="panel">
-  <h2>Summary</h2>
-  <p>{{ result.summary }}</p>
-</div>
+  <section class="glass-panel">
+    <h3>Technical Hierarchy</h3>
+    <div class="input-grid" style="margin-top: 20px;">
+      <div>
+        <h4>Layer 1: Protocol & Metadata</h4>
+        <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;">
+           <div class="layer-pill">
+             <div class="layer-icon {{ result.layer1_spf }}"></div>
+             <div><div class="stat-label" style="margin-bottom: 0;">SPF</div><div style="font-weight: bold;">{{ result.layer1_spf }}</div></div>
+           </div>
+           <div class="layer-pill">
+             <div class="layer-icon {{ result.layer1_dkim }}"></div>
+             <div><div class="stat-label" style="margin-bottom: 0;">DKIM</div><div style="font-weight: bold;">{{ result.layer1_dkim }}</div></div>
+           </div>
+           <div class="layer-pill">
+             <div class="layer-icon {{ result.layer1_arc }}"></div>
+             <div><div class="stat-label" style="margin-bottom: 0;">ARC</div><div style="font-weight: bold;">{{ result.layer1_arc }}</div></div>
+           </div>
+        </div>
+        
+        {% if result.layer1_header_issues or result.layer1_metadata_flags %}
+        <div style="margin-top: 20px; font-size: 0.9rem;">
+          <strong class="danger">Warnings:</strong>
+          <ul style="margin-top: 8px; color: var(--muted);">
+            {% for item in result.layer1_header_issues + result.layer1_metadata_flags %}
+              <li style="margin-bottom: 4px;">{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
 
-<!-- LAYERS -->
-<div class="panel">
-  <h2>Technical Breakdown (Layer-by-Layer)</h2>
-
-  <div class="grid-2">
-
-    <!-- Layer 1 -->
-    <div class="stat-card">
-      <h4>Layer 1 – Protocol</h4>
-      <p>SPF: {{ result.layer1_spf }}</p>
-      <p>DKIM: {{ result.layer1_dkim }}</p>
-      <p>ARC: {{ result.layer1_arc }}</p>
-
-      <strong>Header Issues:</strong>
-      <ul>
-        {% for item in result.layer1_header_issues %}
-          <li>{{ item }}</li>
-        {% endfor %}
-      </ul>
+      <div>
+        <h4>Layer 2: Lexical URL Analysis</h4>
+        <div style="margin-top: 15px;">
+          {% for flag in result.layer2_flags %}
+            <div class="layer-pill" style="border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.05);">
+               <div class="layer-icon fail"></div>
+               <div style="font-size: 0.9rem; font-weight: 600;">{{ flag }}</div>
+            </div>
+          {% endfor %}
+          {% if not result.layer2_flags %}
+            <p class="muted">No suspicious URL patterns detected.</p>
+          {% endif %}
+        </div>
+      </div>
     </div>
+  </section>
 
-    <!-- Layer 2 -->
-    <div class="stat-card">
-      <h4>Layer 2 – URLs</h4>
-      <p>URL Count: {{ result.layer2_url_count }}</p>
-      <ul>
-        {% for item in result.layer2_flags %}
-          <li>{{ item }}</li>
-        {% endfor %}
-      </ul>
-    </div>
+  {% endif %}
 
-    <!-- Layer 3 -->
-    <div class="stat-card">
-      <h4>Layer 3 – Semantic</h4>
-      <p>Label: {{ result.layer3_label }}</p>
-      <p>Probability: {{ result.layer3_proba }}</p>
-    </div>
-
-    <!-- Layer 4 -->
-    <div class="stat-card">
-      <h4>Layer 4 – Context</h4>
-      <p>Used: {{ result.layer4_used }}</p>
-      <p>{{ result.layer4_note }}</p>
-    </div>
-
+  {% if error %}
+  <div class="glass-panel" style="border-color: var(--danger); background: rgba(239, 68, 68, 0.05);">
+    <h3 class="danger">Error</h3>
+    <p>{{ error }}</p>
   </div>
-</div>
-
-<!-- EXPLAINABILITY -->
-<div class="panel">
-  <h2>Explainability</h2>
-
-  <div class="grid-2">
-    <div class="stat-card">
-      <h4>SHAP</h4>
-      <ul>
-        {% for feat in result.shap_features %}
-          <li>{{ feat.feature }} — {{ feat.weight }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-
-    <div class="stat-card">
-      <h4>LIME</h4>
-      <ul>
-        {% for word in result.lime_words %}
-          <li>{{ word.feature }} — {{ word.weight }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-  </div>
-</div>
-
-{% endif %}
+  {% endif %}
 
 </div>
+
+<footer style="text-align: center; padding-bottom: 40px; color: var(--muted); font-size: 0.8rem;">
+</footer>
+
+<script>
+  const form = document.querySelector('form');
+  const loader = document.getElementById('loader');
+  
+  form.addEventListener('submit', () => {
+    loader.style.display = 'flex';
+  });
+
+  // Also trigger for automatic file upload submit
+  const fileInput = document.querySelector('input[type="file"]');
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+      loader.style.display = 'flex';
+      form.submit();
+    }
+  });
+</script>
+
 </body>
 </html>

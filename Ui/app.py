@@ -44,16 +44,22 @@ def normalize_result(data: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "verdict": str(data.get("verdict", "unknown")),
-        "risk_score": _safe_int(data.get("risk_score", 0)),
+        "risk_score": _safe_float(data.get("risk_score", 0.0)),
         "confidence": confidence_display,
         "summary": str(data.get("narrative", "No summary available.")),
+        "analysis_source": str(data.get("analysis_source", "text")),
+        "filename": str(data.get("filename", "") or ""),
+        "metadata_url_score": _safe_float(data.get("metadata_url_score", 0.0)),
+        "semantic_score": _safe_float(data.get("semantic_score", 0.0)),
+        "threshold_safe": _safe_float(data.get("threshold_safe", 40.0)),
+        "threshold_phishing": _safe_float(data.get("threshold_phishing", 60.0)),
 
         # Layer 1
         "layer1_spf": str(data.get("layer1_spf", "unknown")),
         "layer1_dkim": str(data.get("layer1_dkim", "unknown")),
         "layer1_arc": str(data.get("layer1_arc", "unknown")),
         "layer1_header_mismatch": bool(data.get("layer1_header_mismatch", False)),
-        "layer1_protocol_risk_score": _safe_int(data.get("layer1_protocol_risk_score", 0)),
+        "layer1_protocol_risk_score": _safe_float(data.get("layer1_protocol_risk_score", 0.0)),
         "layer1_header_issues": list(data.get("layer1_header_issues", [])),
         "layer1_metadata_flags": list(data.get("layer1_metadata_flags", [])),
 
@@ -149,4 +155,5 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Use host='0.0.0.0' to ensure the UI is visible to your Windows browser
+    app.run(debug=True, host="0.0.0.0", port=5000)

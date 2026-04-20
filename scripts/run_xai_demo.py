@@ -118,9 +118,9 @@ for cls, (_, gidx, txt) in targets.items():
 print()
 print("[3/5] Initialising LIME and SHAP explainers ...")
 
-from src.explainability.lime_explainer import LIMEExplainer
-from src.explainability.shap_explainer import SHAPExplainer
-from src.explainability.narrative_generator import format_explanation_block
+from src.xai.lime_explainer import LIMEExplainer
+from src.xai.shap_explainer import SHAPExplainer
+from src.xai.narrative_generator import format_explanation_block
 
 lime_exp = LIMEExplainer(
     vectorizer=vectorizer,

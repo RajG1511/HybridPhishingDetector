@@ -29,6 +29,8 @@ class DetectionResult:
     confidence: float
     layer_outputs: dict[str, dict[str, Any]]
     explanation: str
+    metadata_url_score: int = 0
+    semantic_score: int = 0
     shap_features: list[dict[str, Any]] = field(default_factory=list)
     lime_words: list[dict[str, Any]] = field(default_factory=list)
 
@@ -162,6 +164,8 @@ class CascadePipeline:
                         shap_result=shap_result,
                         header_flags=layer1_output.get("header_issues", []),
                         url_flags=layer2_output.get("url_flags", []),
+                        risk_score=risk_result.score,
+                        verdict=risk_result.label,
                     )
                 )
             except Exception as exc:
@@ -178,12 +182,14 @@ class CascadePipeline:
         )
         return DetectionResult(
             risk_score=risk_result.score,
+            metadata_url_score=risk_result.metadata_url_score,
+            semantic_score=risk_result.semantic_score,
             predicted_label=str(layer3_output.get("predicted_label", "legitimate")),
-            confidence=float(layer3_output.get("confidence", 0.0)),
+            confidence=float(layer3_output.get("phishing_probability", 0.0)),
             layer_outputs=layer_outputs,
             explanation=explanation,
-            shap_features=shap_features,
-            lime_words=lime_words,
+            shap_features=shap_result or [],
+            lime_words=lime_result or [],
         )
 
     def _run_layer1(self, parsed_email: ParsedEmail) -> dict[str, Any]:
@@ -299,8 +305,8 @@ class CascadePipeline:
 
         return self._neutral_layer3_output()
 
-    def _layer4_placeholder(self, risk_score: int) -> dict[str, Any]:
-        """Return a placeholder Layer 4 status for grey-zone contextual profiling."""
+    def _layer4_placeholder(self, risk_score: float) -> dict[str, Any]:
+        """A placeholder for future Layer 4 human-in-the-loop or advanced analysis."""
         eligible = self.scorer.safe_threshold <= risk_score < self.scorer.phishing_threshold
         if eligible:
             note = (
@@ -444,9 +450,13 @@ class CascadePipeline:
         return [f"class_{index}" for index in range(probability_count)]
 
 
-def _score_to_verdict(score: int) -> str:
-    """Map a score to a final risk verdict."""
-    return RiskScorer(metadata_url_model_path=METADATA_URL_MODEL_PATH).label_for_score(score)
+def _score_to_verdict(score: float) -> str:
+    """Helper for legacy calls or simplified mapping."""
+    # This remains as a helper; the logic should primarily live in RiskScorer.
+    from src.pipeline.risk_scorer import RiskScorer
+    
+    scorer = RiskScorer()
+    return scorer.label_for_score(score)
 
 
 __all__ = [

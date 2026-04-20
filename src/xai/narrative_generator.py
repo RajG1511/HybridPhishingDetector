@@ -67,14 +67,18 @@ def generate_explanation(
     shap_result: dict | None = None,
     header_flags: list[str] | None = None,
     url_flags: list[str] | None = None,
+    risk_score: int | None = None,
+    verdict: str | None = None,
 ) -> str:
-    """Generate a human-readable explanation from LIME and SHAP outputs.
+    """Generate a human-readable explanation from LIME, SHAP, and multi-layer signals.
 
     Args:
         lime_result: Output of LIMEExplainer.explain_prediction().
         shap_result: Output of SHAPExplainer.explain_local() (optional).
         header_flags: Layer 1 protocol flags (optional).
         url_flags: Layer 2 URL risk flags (optional).
+        risk_score: Final ensemble risk score (optional).
+        verdict: Final ensemble verdict (optional).
 
     Returns:
         Multi-sentence plain-English explanation string.
@@ -90,9 +94,31 @@ def generate_explanation(
     lines: list[str] = []
 
     # ── Verdict line ──────────────────────────────────────────────────────
-    lines.append(
-        f"This email is classified as {display} (confidence: {conf_pct:.1f}%)."
-    )
+    if verdict and risk_score is not None:
+        lines.append(
+            f"Analysis concludes this email is {verdict.upper()} with an overall risk score of {risk_score}/100."
+        )
+    else:
+        lines.append(
+            f"This email is predicted as {display} with {conf_pct:.1f}% semantic confidence."
+        )
+
+    # ── Semantic context ──────────────────────────────────────────────────
+    if label == "legitimate" and (header_flags or url_flags):
+        lines.append(
+            "The message content appears authentic and safe based on linguisitic patterns."
+        )
+    elif label != "legitimate":
+        lines.append(
+            f"The semantic analysis flags the content as {display}."
+        )
+
+    # ── Tension & Reconciliation ──────────────────────────────────────────
+    if label == "legitimate" and risk_score is not None and risk_score > 30:
+        lines.append(
+            f"However, technical metadata and security headers raise suspicious signals (Score: {risk_score}), "
+            "suggesting this could be an impersonation attempt or a misconfigured sender."
+        )
 
     # ── Probability breakdown ─────────────────────────────────────────────
     if class_probs:
@@ -100,7 +126,7 @@ def generate_explanation(
             f"{_LABEL_DISPLAY.get(k, k)}: {v*100:.1f}%"
             for k, v in sorted(class_probs.items(), key=lambda x: -x[1])
         ]
-        lines.append(f"Score breakdown — {' | '.join(prob_parts)}.")
+        lines.append(f"Semantic breakdown: {' | '.join(prob_parts)}.")
 
     # ── LIME top words ────────────────────────────────────────────────────
     if features:
@@ -118,14 +144,16 @@ def generate_explanation(
                     phrase += f" [{pattern}]"
                     seen_patterns.add(pattern)
                 word_phrases.append(phrase)
-            lines.append(
-                f"Key words driving this classification: {', '.join(word_phrases)}."
-            )
+            
+            if label != "legitimate":
+                lines.append(f"Key suspicious indicators in text: {', '.join(word_phrases)}.")
+            else:
+                lines.append(f"Minor content anomalies detected: {', '.join(word_phrases)}.")
 
         if legit_words and label != "legitimate":
             counter_parts = [f'"{w}" ({wt:+.3f})' for w, wt in legit_words]
             lines.append(
-                f"Mitigating legitimate signals: {', '.join(counter_parts)}."
+                f"Mitigating authentic signals: {', '.join(counter_parts)}."
             )
 
     # ── SHAP context ─────────────────────────────────────────────────────
@@ -135,15 +163,25 @@ def generate_explanation(
             top_shap = shap_cls[:3]
             shap_parts = [f'"{w}" ({v:+.4f})' for w, v in top_shap]
             lines.append(
-                f"Random Forest (SHAP) confirms these top features for {_LABEL_DISPLAY.get(label, label)}: "
-                f"{', '.join(shap_parts)}."
+                f"Ensemble feature confirmation for {display}: {', '.join(shap_parts)}."
             )
 
     # ── Protocol / URL flags ──────────────────────────────────────────────
     if header_flags:
-        lines.append(f"Protocol issues: {'; '.join(header_flags[:3])}.")
+        lines.append(f"Security Header Alerts: {'; '.join(header_flags[:4])}.")
     if url_flags:
-        lines.append(f"URL risk signals: {'; '.join(url_flags[:3])}.")
+        lines.append(f"Suspicious URL attributes: {'; '.join(url_flags[:4])}.")
+
+    # ── Conclusion ────────────────────────────────────────────────────────
+    if verdict == "safe" or (verdict == "suspicious" and label == "legitimate"):
+        lines.append(
+            "Overall, the evidence suggests legitimate correspondence, though protocol warnings indicate "
+            "minor configuration issues with the sender's email setup."
+        )
+    elif verdict == "phishing":
+        lines.append(
+            "The combination of high-risk metadata and suspicious content patterns indicates a high probability of phishing."
+        )
 
     # ── Class-specific context ────────────────────────────────────────────
     if label == "phishing_ai":

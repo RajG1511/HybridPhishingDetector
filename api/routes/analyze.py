@@ -30,7 +30,7 @@ def set_pipeline(pipeline: CascadePipeline) -> None:
     _pipeline = pipeline
 
 
-def _build_response(result) -> AnalyzeResponse:
+def _build_response(result, source: str = "text", filename: str | None = None) -> AnalyzeResponse:
     """Convert a DetectionResult into the current API response schema."""
     layer1 = result.layer_outputs.get("layer1", {})
     layer2 = result.layer_outputs.get("layer2", {})
@@ -44,17 +44,42 @@ def _build_response(result) -> AnalyzeResponse:
     layer3_label = str(layer3.get("predicted_label", "unknown"))
     layer3_proba = float(layer3.get("phishing_probability", layer3.get("confidence", 0.0)))
 
+    # Transform XAI results from dict/tuples to list of FeatureAttribution objects
+    is_phishing = result.verdict == "phishing"
+    predicted_label = result.predicted_label if hasattr(result, "predicted_label") else ("phishing_human" if is_phishing else "legitimate")
+
+    raw_shap = getattr(result, "shap_features", {})
+    shap_list = []
+    if isinstance(raw_shap, dict) and "per_class" in raw_shap:
+        raw_list = raw_shap["per_class"].get(predicted_label, [])
+        shap_list = [{"feature": f, "weight": w} for f, w in raw_list]
+    elif isinstance(raw_shap, list):
+        shap_list = raw_shap
+
+    raw_lime = getattr(result, "lime_words", {})
+    lime_list = []
+    if isinstance(raw_lime, dict) and "top_features" in raw_lime:
+        lime_list = [{"feature": f, "weight": w} for f, w in raw_lime["top_features"]]
+    elif isinstance(raw_lime, list):
+        lime_list = raw_lime
+
     return AnalyzeResponse(
         risk_score=result.risk_score,
         verdict=result.verdict,
         narrative=result.explanation,
+        analysis_source=source,
+        filename=filename,
+        metadata_url_score=getattr(result, "metadata_url_score", 0.0),
+        semantic_score=getattr(result, "semantic_score", 0.0),
+        threshold_safe=_pipeline.scorer.safe_threshold if _pipeline else 40.0,
+        threshold_phishing=_pipeline.scorer.phishing_threshold if _pipeline else 60.0,
 
         # Layer 1
         layer1_spf=str(layer1.get("spf", "unknown")),
         layer1_dkim=str(layer1.get("dkim", "unknown")),
         layer1_arc=str(layer1.get("arc", "unknown")),
         layer1_header_mismatch=bool(layer1.get("header_mismatch", False)),
-        layer1_protocol_risk_score=int(layer1.get("protocol_risk_score", 0)),
+        layer1_protocol_risk_score=float(layer1.get("protocol_risk_score", 0.0)),
         layer1_header_issues=list(layer1.get("header_issues", [])),
         layer1_metadata_flags=list(layer1.get("metadata_flags", [])),
 
@@ -74,8 +99,8 @@ def _build_response(result) -> AnalyzeResponse:
         layer4_note=str(layer4.get("note", "")),
 
         # XAI
-        shap_features=getattr(result, "shap_features", []),
-        lime_words=getattr(result, "lime_words", []),
+        shap_features=shap_list,
+        lime_words=lime_list,
     )
 
 
@@ -99,7 +124,7 @@ async def analyze_text(request: AnalyzeTextRequest) -> AnalyzeResponse:
         logger.exception("Analysis failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return _build_response(result)
+    return _build_response(result, source="text")
 
 
 @router.post("/analyze/upload", response_model=AnalyzeResponse)
@@ -126,4 +151,4 @@ async def analyze_upload(file: UploadFile = File(...)) -> AnalyzeResponse:
         logger.exception("Analysis failed for uploaded file")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return _build_response(result)
+    return _build_response(result, source="upload", filename=file.filename)
