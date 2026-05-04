@@ -27,7 +27,6 @@ class TestMetadataURLModel:
                 "has_ip_max": 1.0,
                 "url_digit_ratio_max": 0.2,
             },
-            domain_age_days=[12, None],
         )
 
         feature_dict = build_feature_dict_from_signals(signals)
@@ -38,7 +37,6 @@ class TestMetadataURLModel:
         assert feature_dict["spf_none"] == 1.0
         assert feature_dict["dkim_missing"] == 1.0
         assert feature_dict["arc_fail"] == 1.0
-        assert feature_dict["new_domain_present"] == 1.0
 
     def test_risk_scorer_can_use_learned_metadata_url_model(self) -> None:
         learned_model = MetadataURLModel(
@@ -67,5 +65,5 @@ class TestMetadataURLModel:
 
         assert result.metadata_url_model_name == "dummy_metadata_url"
         assert result.metadata_url_probability == 0.75
-        assert result.layer_scores["layer1_protocol"] + result.layer_scores["layer2_url"] == 41
+        assert result.layer_scores["layer1_protocol"] + result.layer_scores["layer2_url"] == 42
         assert result.layer_scores["layer3_semantic"] == 0

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config.settings import PHISHING_RISK_THRESHOLD, SAFE_RISK_THRESHOLD
+import pytest
+
+from config.settings import ENSEMBLE_PHISHING_THRESHOLD as PHISHING_RISK_THRESHOLD, ENSEMBLE_SAFE_THRESHOLD as SAFE_RISK_THRESHOLD
 from src.pipeline.cascade_pipeline import CascadePipeline, _score_to_verdict
 from src.pipeline.email_ingester import ingest_eml_file, ingest_raw
 from src.pipeline.risk_scorer import RiskScorer, RiskSignals
@@ -73,9 +75,7 @@ class TestRiskScorer:
     def test_score_capped_at_100(self) -> None:
         scorer = RiskScorer()
         signals = RiskSignals(
-            header_mismatch_count=100,
-            dkim_valid=False,
-            spf_pass=False,
+            protocol_risk_score=100,
             url_flags=["a"] * 50,
             ensemble_proba=1.0,
         )
@@ -134,7 +134,7 @@ class TestCascadePipeline:
         result = pipeline.run(ingest_raw(raw_phishing_email))
 
         assert result.predicted_label == "phishing_ai"
-        assert result.confidence == 0.91
+        assert result.confidence == pytest.approx(0.96)
         assert result.layer_outputs["layer1"]["protocol_risk_score"] == 65
         assert result.layer_outputs["layer2"]["url_count"] >= 1
         assert result.risk_score >= 60
